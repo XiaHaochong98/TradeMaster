@@ -24,6 +24,8 @@ import tensorflow as tf
 
 from utils import extract_time, rnn_cell, random_generator, batch_generator
 
+from tsai.all import *
+import sklearn.metrics as skm
 
 def timegan(ori_data, parameters, model_name,device=0):
     """TimeGAN function.
@@ -165,7 +167,13 @@ def timegan(ori_data, parameters, model_name,device=0):
             Y_hat = tf.contrib.layers.fully_connected(d_outputs, 1, activation_fn=None)
         return Y_hat
 
-        # Embedder & Recoveryz
+    def style_discriminator():
+        # discrimate the regime of synthetic time-series data with pre-train network
+
+        # discrimate the regime of synthetic time-series data with regime labeler
+
+
+    # Embedder & Recovery
 
     H = embedder(X, T)
     X_tilde = recovery(H, T)
@@ -182,6 +190,22 @@ def timegan(ori_data, parameters, model_name,device=0):
     Y_fake = discriminator(H_hat, T)
     Y_real = discriminator(H, T)
     Y_fake_e = discriminator(E_hat, T)
+
+    # Style Discriminators
+    #TODO: pretrained RocketClassifier
+
+    #TODO: pretrained InceptionTime
+    learn = load_learner_all(path='export', dls_fname='dls', model_fname='model', learner_fname='learner')
+    dls = learn.dls
+    valid_dl = dls.valid
+    b = next(iter(valid_dl))
+
+
+    #Stylized fact constrain
+
+    #TODO: auto-correlation loss
+
+    #TODO: leveraging effects
 
     # Variables
     e_vars = [v for v in tf.trainable_variables() if v.name.startswith('embedder')]
@@ -252,6 +276,10 @@ def timegan(ori_data, parameters, model_name,device=0):
         X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
         # Random vector generation
         Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
+        # style modulation
+        #TODO: modulate style to Z
+
+
         # Train generator
         _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
         # Checkpoint
