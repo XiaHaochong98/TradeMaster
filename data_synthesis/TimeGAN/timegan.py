@@ -167,10 +167,10 @@ def timegan(ori_data, parameters, model_name,device=0):
             Y_hat = tf.contrib.layers.fully_connected(d_outputs, 1, activation_fn=None)
         return Y_hat
 
-    def style_discriminator():
-        # discrimate the regime of synthetic time-series data with pre-train network
-
-        # discrimate the regime of synthetic time-series data with regime labeler
+    # def style_discriminator():
+    #     # discrimate the regime of synthetic time-series data with pre-train network
+    #
+    #     # discrimate the regime of synthetic time-series data with regime labeler
 
 
     # Embedder & Recovery
