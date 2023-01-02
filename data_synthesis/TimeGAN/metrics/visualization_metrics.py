@@ -21,9 +21,9 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import numpy as np
-
+import  os
    
-def visualization (ori_data, generated_data, analysis):
+def visualization (ori_data, generated_data, analysis,savefig=None):
   """Using PCA or tSNE for generated and original data visualization.
   
   Args:
@@ -76,6 +76,11 @@ def visualization (ori_data, generated_data, analysis):
     plt.xlabel('x-pca')
     plt.ylabel('y_pca')
     plt.show()
+
+    if savefig:
+      if not os.path.exists("./visualization"):
+        os.makedirs("./visualization")
+      f.savefig('./visualization/PCA_'+savefig+'.png')
     
   elif analysis == 'tsne':
     
@@ -99,4 +104,8 @@ def visualization (ori_data, generated_data, analysis):
     plt.title('t-SNE plot')
     plt.xlabel('x-tsne')
     plt.ylabel('y_tsne')
-    plt.show()    
+    plt.show()
+    if savefig:
+      if not os.path.exists("./visualization"):
+        os.makedirs("./visualization")
+      f.savefig('./visualization/TSNE_'+savefig+'.png')
