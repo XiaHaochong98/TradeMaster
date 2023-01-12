@@ -27,7 +27,7 @@ from utils import extract_time, rnn_cell, random_generator, batch_generator
 from tsai.all import *
 import sklearn.metrics as skm
 
-def timegan(ori_data, parameters, model_name,device=0,save_name=None):
+def timegan(ori_data, parameters,device=0,save_name=None):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -330,7 +330,7 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
                   ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4)))
             # Now, save the graph
-            saver.save(sess, './model/join_training_model_'+str(save_name)+str(model_name), global_step=itt)
+            saver.save(sess, './model/join_training_model_'+str(save_name), global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
