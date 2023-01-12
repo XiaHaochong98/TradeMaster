@@ -4,3 +4,5 @@
 /data_synthesis/TimeGAN/data/
 /data_synthesis/TimeGAN/export/
 /data_synthesis/TimeGAN/fig/
+/data_synthesis/TimeGAN/generated_data/
+/data_synthesis/TimeGAN/model/
