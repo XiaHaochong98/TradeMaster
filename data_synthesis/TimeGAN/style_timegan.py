@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data, parameters,device=0,save_name=None):
+def styletimegan(ori_data, parameters,label,device=0,save_name=None):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -53,6 +53,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
     ori_time, max_seq_len = extract_time(ori_data)
 
     if save_name:
+        save_name+='_'
         save_name+='_'
     def MinMaxScaler(data):
         """Min-Max Normalizer.
@@ -190,6 +191,10 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
 
     # Synthetic data
     X_hat = recovery(H_hat, T)
+    generated_data_for_style_evaluation = list()
+    for i in range(no):
+        temp = X_hat[i, :ori_time[i], :]
+        generated_data_for_style_evaluation.append(temp)
 
     # Discriminator
     Y_fake = discriminator(H_hat, T)
@@ -198,35 +203,27 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
 
     # Style Discriminators
 
-    #TODO: pretrained InceptionTime
+    #TODO: pretrained InceptionTime for style classification
     my_setup()
     learn=load_all(path='export', dls_fname='dls', model_fname='model',
              learner_fname='learner', device=None, pickle_module=pickle, verbose=True)
 
     def get_style_score(data,label,learn):
-        res_dict = {}
-        for k, v in data_dict.items():
-            label = int(k[-1])
-            X_test = []
-            X_test.extend([p.transpose() for p in v])
-            X_test = np.array(X_test)
-            test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
-            # print(k,label)
-            score = get_pre_res(test_preds, label)
-            res_dict[k] = score
-        return res_dict
+        X_test = []
+        X_test.extend([p.transpose() for p in data])
+        X_test = np.array(X_test)
+        test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
+        score = get_pre_res(test_preds, label)
+        return score
 
     def get_pre_res(pred_res, label):
         res = json.loads(pred_res)
-        # print(res)
         res = [int(r) for r in res]
-        # print(res)
         c = Counter(res)
         return c[label] / len(res)
-    # learn = load_learner_all(path='export', dls_fname='dls', model_fname='model', learner_fname='learner')
-    # dls = learn.dls
-    # valid_dl = dls.valid
-    # b = next(iter(valid_dl))
+
+
+
 
 
     #Stylized fact constrain
@@ -246,6 +243,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
     D_loss_real = tf.losses.sigmoid_cross_entropy(tf.ones_like(Y_real), Y_real)
     D_loss_fake = tf.losses.sigmoid_cross_entropy(tf.zeros_like(Y_fake), Y_fake)
     D_loss_fake_e = tf.losses.sigmoid_cross_entropy(tf.zeros_like(Y_fake_e), Y_fake_e)
+    D_loss_style = 1-get_style_score(generated_data_for_style_evaluation,label,learn)
     D_loss = D_loss_real + D_loss_fake + gamma * D_loss_fake_e
 
     # Generator loss
@@ -356,7 +354,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
                   ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4)))
             # Now, save the graph
-            saver.save(sess, './model/join_training_model_'+str(save_name), global_step=itt)
+            saver.save(sess, './model/join_training_model_'+str(save_name)+'_add_style', global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
