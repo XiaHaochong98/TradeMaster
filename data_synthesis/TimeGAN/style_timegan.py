@@ -315,11 +315,11 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
-        saver.save(sess, './model/before_join_training_model_' + str(save_name) + '_add_style')
+        saver.save(sess, './model/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('Finish Training with Supervised Loss Only')
     else:
-        new_saver = tf.train.import_meta_graph('my_test_model-1000.meta')
-        new_saver.restore(sess, tf.train.latest_checkpoint('./'))
+        saver.restore(sess, './model/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
+        print('restore model before join trainingd')
 
 
     # 3. Joint Training
@@ -368,7 +368,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
                   )
             # Now, save the graph
 
-            saver.save(sess, './model/join_training_model_'+str(save_name)+'_add_style', global_step=itt)
+            saver.save(sess, './model/join_training_model_'+str(save_name)+'_add_style.ckpt', global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
