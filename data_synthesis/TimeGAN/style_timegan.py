@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data, parameters,device=0,save_name=None):
+def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -45,6 +45,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
     # Initialization on the Graph
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
+    saver = tf.train.Saver()
 
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
@@ -53,6 +54,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
     ori_time, max_seq_len = extract_time(ori_data)
 
     if save_name:
+        save_name+='_'
         save_name+='_'
     def MinMaxScaler(data):
         """Min-Max Normalizer.
@@ -190,6 +192,10 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
 
     # Synthetic data
     X_hat = recovery(H_hat, T)
+    generated_data_for_style_evaluation = list()
+    for i in range(no):
+        temp = X_hat[i, :ori_time[i], :]
+        generated_data_for_style_evaluation.append(temp)
 
     # Discriminator
     Y_fake = discriminator(H_hat, T)
@@ -198,35 +204,27 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
 
     # Style Discriminators
 
-    #TODO: pretrained InceptionTime
+    #TODO: pretrained InceptionTime for style classification
     my_setup()
     learn=load_all(path='export', dls_fname='dls', model_fname='model',
              learner_fname='learner', device=None, pickle_module=pickle, verbose=True)
 
     def get_style_score(data,label,learn):
-        res_dict = {}
-        for k, v in data_dict.items():
-            label = int(k[-1])
-            X_test = []
-            X_test.extend([p.transpose() for p in v])
-            X_test = np.array(X_test)
-            test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
-            # print(k,label)
-            score = get_pre_res(test_preds, label)
-            res_dict[k] = score
-        return res_dict
+        X_test = []
+        X_test.extend([p.transpose() for p in data])
+        X_test = np.array(X_test)
+        test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
+        score = get_pre_res(test_preds, label)
+        return score
 
     def get_pre_res(pred_res, label):
         res = json.loads(pred_res)
-        # print(res)
         res = [int(r) for r in res]
-        # print(res)
         c = Counter(res)
         return c[label] / len(res)
-    # learn = load_learner_all(path='export', dls_fname='dls', model_fname='model', learner_fname='learner')
-    # dls = learn.dls
-    # valid_dl = dls.valid
-    # b = next(iter(valid_dl))
+
+
+
 
 
     #Stylized fact constrain
@@ -263,8 +261,11 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
 
     G_loss_V = G_loss_V1 + G_loss_V2
 
-    # 4. Summation
-    G_loss = G_loss_U + gamma * G_loss_U_e + 100 * tf.sqrt(G_loss_S) + 100 * G_loss_V
+    # 4.Style supervisor
+    Style_loss = 1 - get_style_score(generated_data_for_style_evaluation, label, learn)
+
+    # 5. Summation
+    G_loss = G_loss_U + gamma * G_loss_U_e + 100 * tf.sqrt(G_loss_S) + 100 * G_loss_V + Style_loss
 
     # Embedder network loss
     E_loss_T0 = tf.losses.mean_squared_error(X, X_tilde)
@@ -281,43 +282,44 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
     ## TimeGAN training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-
+    summary_writer = tf.train.SummaryWriter('./log/', sess.graph)
     # 1. Embedding network training
-    print('Start Embedding Network Training')
+    if not from_join_training:
+        print('Start Embedding Network Training')
 
-    for itt in range(iterations):
-        # Set mini-batch
-        X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
-        # Train embedder
-        _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
-        # Checkpoint
-        if itt % 1000 == 0:
-            print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
+        for itt in range(iterations):
+            # Set mini-batch
+            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            # Train embedder
+            _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
+            # Checkpoint
+            if itt % 1000 == 0:
+                print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
 
-    print('Finish Embedding Network Training')
+        print('Finish Embedding Network Training')
 
-    # 2. Training only with supervised loss
-    print('Start Training with Supervised Loss Only')
+        # 2. Training only with supervised loss
+        print('Start Training with Supervised Loss Only')
 
-    for itt in range(iterations):
-        # Set mini-batch
-        X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
-        # Random vector generation
-        Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
-        # style modulation
-        #TODO: modulate style to Z
+        for itt in range(iterations):
+            # Set mini-batch
+            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            # Random vector generation
+            Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
+            # style modulation
+            #TODO: modulate style to Z
 
 
-        # Train generator
-        _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
-        # Checkpoint
-        if itt % 1000 == 0:
-            print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
-
-    print('Finish Training with Supervised Loss Only')
-
-    saver = tf.train.Saver()
-
+            # Train generator
+            _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
+            # Checkpoint
+            if itt % 1000 == 0:
+                print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
+        saver.save(sess, './model/before_join_training_model_' + str(save_name) + '_add_style')
+        print('Finish Training with Supervised Loss Only')
+    else:
+        new_saver = tf.train.import_meta_graph('my_test_model-1000.meta')
+        new_saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 
     # 3. Joint Training
@@ -331,7 +333,7 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
             # Random vector generation
             Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
             # Train generator
-            _, step_g_loss_u, step_g_loss_s, step_g_loss_v = sess.run([G_solver, G_loss_U, G_loss_S, G_loss_V],
+            _, step_g_loss_u, step_g_loss_s, step_g_loss_v,step_g_loss_style = sess.run([G_solver, G_loss_U, G_loss_S, G_loss_V,Style_loss],
                                                                       feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
             # Train embedder
             _, step_e_loss_t0 = sess.run([E_solver, E_loss_T0], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
@@ -348,15 +350,25 @@ def styletimegan(ori_data, parameters,device=0,save_name=None):
             _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb})
 
         # Print multiple checkpoints
+        if itt % 100 == 0:
+            summary_writer.add_summary(step_d_loss, global_step=itt)
+            summary_writer.add_summary(step_g_loss_u, global_step=itt)
+            summary_writer.add_summary(step_g_loss_s, global_step=itt)
+            summary_writer.add_summary(step_g_loss_v, global_step=itt)
+            summary_writer.add_summary(step_e_loss_t0, global_step=itt)
+            summary_writer.add_summary(step_g_loss_style, global_step=itt)
         if itt % 1000 == 0:
             print('step: ' + str(itt) + '/' + str(iterations) +
                   ', d_loss: ' + str(np.round(step_d_loss, 4)) +
                   ', g_loss_u: ' + str(np.round(step_g_loss_u, 4)) +
                   ', g_loss_s: ' + str(np.round(np.sqrt(step_g_loss_s), 4)) +
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
-                  ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4)))
+                  ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4))+
+                  ', g_loss_style: ' + str(np.round(step_g_loss_style, 4))
+                  )
             # Now, save the graph
-            saver.save(sess, './model/join_training_model_'+str(save_name), global_step=itt)
+
+            saver.save(sess, './model/join_training_model_'+str(save_name)+'_add_style', global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
