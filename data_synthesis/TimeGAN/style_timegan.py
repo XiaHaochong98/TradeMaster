@@ -45,7 +45,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     # Initialization on the Graph
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
-    tf.enable_eager_execution()
+    # tf.enable_eager_execution()
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
 
