@@ -42,7 +42,6 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     # Initialization on the Graph
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
-    saver = tf.train.Saver()
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
 
@@ -288,9 +287,11 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
+        saver = tf.train.Saver()
         saver.save(sess, './model/ori/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('Finish Training with Supervised Loss Only')
     else:
+        saver = tf.train.Saver()
         saver.restore(sess, './model/ori/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('restore model before joint training')
 
