@@ -180,7 +180,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
 
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    summary_writer = tf.train.SummaryWriter('./log/style/', sess.graph)
+    summary_writer = tf.summary.FileWriter('./log/style/', sess.graph)
 
 
     # Embedder & Recovery
