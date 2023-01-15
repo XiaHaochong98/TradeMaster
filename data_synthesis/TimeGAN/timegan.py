@@ -254,7 +254,7 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     ## TimeGAN training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    summary_writer = tf.train.SummaryWriter('./log/ori/', sess.graph)
+    summary_writer = tf.summary.FileWriter('./log/ori/', sess.graph)
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
