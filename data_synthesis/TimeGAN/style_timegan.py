@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_training=False):
+def styletimegan(ori_data, parameters,training_label,label,style_training_data,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -48,12 +48,16 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     # tf.enable_eager_execution()
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
+    if style_training:
+        style_no, style_seq_len, style_dim = np.asarray(style_training_data).shape
 
     # Maximum sequence length and each sequence length
     ori_time, max_seq_len = extract_time(ori_data)
+    if style_training:
+        style_ori_time, style_max_seq_len = extract_time(style_training_data)
+
 
     if save_name:
-        save_name+='_'
         save_name+='_'
     def MinMaxScaler(data):
         """Min-Max Normalizer.
@@ -76,6 +80,8 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
 
     # Normalization
     ori_data, min_val, max_val = MinMaxScaler(ori_data)
+    if style_training:
+        style_training_data, _, _ = MinMaxScaler(style_training_data)
 
     ## Build a RNN networks
 
@@ -92,6 +98,9 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     X = tf.placeholder(tf.float32, [None, max_seq_len, dim], name="myinput_x")
     Z = tf.placeholder(tf.float32, [None, max_seq_len, z_dim], name="myinput_z")
     T = tf.placeholder(tf.int32, [None], name="myinput_t")
+    if style_training:
+        style_T = tf.placeholder(tf.int32, [None], name="myinput_style_t")
+        style_X = tf.placeholder(tf.float32, [None, style_max_seq_len, style_dim], name="myinput_style_x")
 
     def embedder(X, T):
         """Embedding network between original feature space to latent space.
@@ -173,14 +182,10 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
             Y_hat = tf.contrib.layers.fully_connected(d_outputs, 1, activation_fn=None)
         return Y_hat
 
-    # def style_discriminator():
-    #     # discrimate the regime of synthetic time-series data with pre-train network
-    #
-    #     # discrimate the regime of synthetic time-series data with regime labeler
+    def style_discriminator(X,T):
+        # discrimate the regime of synthetic time-series data with pre-train network
+        with tf.variable_scope("style_discriminator", reuse=tf.AUTO_REUSE):
 
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
-    summary_writer = tf.summary.FileWriter('./log/style/', sess.graph)
 
 
     # Embedder & Recovery
@@ -208,24 +213,9 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     # Style Discriminators
 
     #TODO: pretrained InceptionTime for style classification
-    my_setup()
-    learn=load_all(path='export', dls_fname='dls', model_fname='model',
-             learner_fname='learner', device=device, pickle_module=pickle, verbose=True)
-
-    def get_style_score(data,label,learn,sess):
-        X_test = []
-        X_test.extend([tf.transpose(p) for p in data])
-        X_test = tf.convert_to_tensor(X_test)
-        test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
-        score = get_pre_res(test_preds, label)
-        return score
-
-    def get_pre_res(pred_res, label):
-        res = json.loads(pred_res)
-        res = [int(r) for r in res]
-        c = Counter(res)
-        return c[label] / len(res)
-
+    if style_training:
+        L_style_training=style_discriminator(style_X,style_T)
+    L_style= style_discriminator(X_hat,T)
 
 
 
@@ -242,6 +232,12 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     g_vars = [v for v in tf.trainable_variables() if v.name.startswith('generator')]
     s_vars = [v for v in tf.trainable_variables() if v.name.startswith('supervisor')]
     d_vars = [v for v in tf.trainable_variables() if v.name.startswith('discriminator')]
+    style_vars=[v for v in tf.trainable_variables() if v.name.startswith('style_discriminator')]
+
+    #Style Discriminator loss
+    if style_training:
+        Style_loss_training =tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(training_label), L_style_training)
+    Style_loss=tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(label), L_style)
 
     # Discriminator loss
     D_loss_real = tf.losses.sigmoid_cross_entropy(tf.ones_like(Y_real), Y_real)
@@ -264,16 +260,13 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
 
     G_loss_V = G_loss_V1 + G_loss_V2
 
-    # 4.Style supervisor
-    Style_loss = 1 - get_style_score(generated_data_for_style_evaluation, label, learn,sess)
-
-    # 5. Summation
+    # 4. Summation
     G_loss = G_loss_U + gamma * G_loss_U_e + 100 * tf.sqrt(G_loss_S) + 100 * G_loss_V + Style_loss
 
     # Embedder network loss
     E_loss_T0 = tf.losses.mean_squared_error(X, X_tilde)
     E_loss0 = 10 * tf.sqrt(E_loss_T0)
-    E_loss = E_loss0 + 0.1 * G_loss_S
+    E_loss = E_loss0 + 0.1 * G_loss_S + Style_loss
 
     # optimizer
     E0_solver = tf.train.AdamOptimizer().minimize(E_loss0, var_list=e_vars + r_vars)
@@ -281,12 +274,36 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=d_vars)
     G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=g_vars + s_vars)
     GS_solver = tf.train.AdamOptimizer().minimize(G_loss_S, var_list=g_vars + s_vars)
+    if style_training:
+      Style_D_solver  = tf.train.AdamOptimizer().minimize(Style_loss_training, var_list=style_vars)
 
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    summary_writer = tf.summary.FileWriter('./log/style/', sess.graph)
     ## TimeGAN training
+    #0. Style Discriminator training
+    saver = tf.train.Saver()
+    if style_training:
+        print('start style training')
+        for itt in range(iterations):
+            # Set mini-batch
+            X_mb, T_mb = batch_generator(style_training_data, style_ori_time, batch_size)
+            # Train embedder
+            _, step_style_loss = sess.run([Style_D_solver, Style_loss_training], feed_dict={X: X_mb, T: T_mb})
+            # Checkpoint
+            if itt % 100 == 0:
+                summary_writer.add_summary(step_style_loss, global_step=itt)
+            if itt % 1000 == 0:
+                print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
+        saver.save(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
+    else:
+        saver.restore(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
+    if only_style_training:
+        print("style training done, end all process")
+        return
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
-
         for itt in range(iterations):
             # Set mini-batch
             X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
@@ -315,11 +332,9 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
-        saver = tf.train.Saver()
         saver.save(sess, './model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('Finish Training with Supervised Loss Only')
     else:
-        saver = tf.train.Saver()
         saver.restore(sess, './model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('restore model before joint training')
 
