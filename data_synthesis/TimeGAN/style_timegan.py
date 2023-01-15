@@ -210,7 +210,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     #TODO: pretrained InceptionTime for style classification
     my_setup()
     learn=load_all(path='export', dls_fname='dls', model_fname='model',
-             learner_fname='learner', device=None, pickle_module=pickle, verbose=True)
+             learner_fname='learner', device=device, pickle_module=pickle, verbose=True)
 
     def get_style_score(data,label,learn,sess):
         X_test = []
