@@ -45,7 +45,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     # Initialization on the Graph
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
-
+    tf.enable_eager_execution()
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
 
@@ -214,7 +214,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
 
     def get_style_score(data,label,learn,sess):
         X_test = []
-        X_test.extend([p.eval(session=sess).transpose() for p in data])
+        X_test.extend([p.numpy().transpose() for p in data])
         X_test = np.array(X_test)
         test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
         score = get_pre_res(test_preds, label)
