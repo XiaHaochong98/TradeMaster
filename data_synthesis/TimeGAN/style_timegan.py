@@ -178,6 +178,10 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     #
     #     # discrimate the regime of synthetic time-series data with regime labeler
 
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    summary_writer = tf.train.SummaryWriter('./log/style/', sess.graph)
+
 
     # Embedder & Recovery
 
@@ -208,7 +212,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     learn=load_all(path='export', dls_fname='dls', model_fname='model',
              learner_fname='learner', device=None, pickle_module=pickle, verbose=True)
 
-    def get_style_score(data,label,learn):
+    def get_style_score(data,label,learn,sess):
         X_test = []
         X_test.extend([p.eval(session=sess).transpose() for p in data])
         X_test = np.array(X_test)
@@ -261,7 +265,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     G_loss_V = G_loss_V1 + G_loss_V2
 
     # 4.Style supervisor
-    Style_loss = 1 - get_style_score(generated_data_for_style_evaluation, label, learn)
+    Style_loss = 1 - get_style_score(generated_data_for_style_evaluation, label, learn,sess)
 
     # 5. Summation
     G_loss = G_loss_U + gamma * G_loss_U_e + 100 * tf.sqrt(G_loss_S) + 100 * G_loss_V + Style_loss
@@ -279,9 +283,6 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
     GS_solver = tf.train.AdamOptimizer().minimize(G_loss_S, var_list=g_vars + s_vars)
 
     ## TimeGAN training
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
-    summary_writer = tf.train.SummaryWriter('./log/style/', sess.graph)
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
