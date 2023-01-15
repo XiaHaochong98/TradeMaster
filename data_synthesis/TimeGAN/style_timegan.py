@@ -210,7 +210,7 @@ def styletimegan(ori_data, parameters,label,device=0,save_name=None,from_join_tr
 
     def get_style_score(data,label,learn):
         X_test = []
-        X_test.extend([p.eval().transpose() for p in data])
+        X_test.extend([p.eval(session=sess).transpose() for p in data])
         X_test = np.array(X_test)
         test_probas, test_targets, test_preds = learn.get_X_preds(X_test)
         score = get_pre_res(test_preds, label)
