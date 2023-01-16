@@ -21,7 +21,7 @@ import os
 import numpy as np
 # Necessary Packages
 import tensorflow as tf
-
+import tensorflow.keras as keras
 from utils import extract_time, rnn_cell, random_generator, batch_generator
 
 from tsai.all import *
@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data, parameters,training_label,label,style_training_data,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
+def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_training_data,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -44,6 +44,7 @@ def styletimegan(ori_data, parameters,training_label,label,style_training_data,s
     """
     # Initialization on the Graph
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+
     tf.reset_default_graph()
     # tf.enable_eager_execution()
     # Basic Parameters
@@ -182,9 +183,63 @@ def styletimegan(ori_data, parameters,training_label,label,style_training_data,s
             Y_hat = tf.contrib.layers.fully_connected(d_outputs, 1, activation_fn=None)
         return Y_hat
 
-    def style_discriminator(X,T):
+    def style_discriminator(input_tensor,nb_classes=3):
         # discrimate the regime of synthetic time-series data with pre-train network
         with tf.variable_scope("style_discriminator", reuse=tf.AUTO_REUSE):
+
+            def _shortcut_layer(input_tensor, out_tensor):
+                shortcut_y =  tf.layers.conv1d(inputs=input_tensor,filters=int(out_tensor.shape[-1]), kernel_size=1,
+                                                 padding='same', use_bias=False)
+                shortcut_y = tf.layers.BatchNormalization(shortcut_y)
+                x = tf.add([shortcut_y, out_tensor])
+                x =tf.layers.activation(x,'relu')
+                return x
+            def _inception_module(input_tensor):
+                if int(input_tensor.shape[-1]) > 1:
+                    input_inception = tf.layers.conv1d(inputs=input_tensor,filters=32, kernel_size=1,
+                                                          padding='same', activation='linear', use_bias=False)
+                else:
+                    input_inception = input_tensor
+
+                # kernel_size_s = [3, 5, 8, 11, 17]
+                kernel_size_s = [40 // (2 ** i) for i in range(3)]
+
+                conv_list = []
+
+                for i in range(len(kernel_size_s)):
+                    conv_list.append(tf.layers.conv1d(inputs=input_inception,filters=32, kernel_size=kernel_size_s[i],
+                                                         strides=1, padding='same', activation='linear',
+                                                         use_bias=False))
+
+                max_pool_1 = tf.layers.max_pooling1d(inputs=input_tensor,pool_size=3, strides=1, padding='same')
+
+                conv_6 = tf.layers.conv1d(inputs=max_pool_1,filters=32, kernel_size=1,
+                                             padding='same', activation='linear', use_bias=False)
+
+                conv_list.append(conv_6)
+
+                x = tf.concat(conv_list,axis=2)
+                x = tf.layers.BatchNormalization(x)
+                x = tf.layers.activation(x,activation='relu')
+                return x
+
+
+            x = input_tensor
+            input_res = input_tensor
+
+            for d in range(6):
+
+                x = _inception_module(x)
+
+                if  d % 3 == 2:
+                    x = _shortcut_layer(input_res, x)
+                    input_res = x
+
+            gap_layer = tf.layers.globalAveragePooling1d(x)
+
+            output_layer = tf.layers.dense(gap_layer,nb_classes, activation='softmax')
+
+            return output_layer
 
 
 
@@ -214,8 +269,8 @@ def styletimegan(ori_data, parameters,training_label,label,style_training_data,s
 
     #TODO: pretrained InceptionTime for style classification
     if style_training:
-        L_style_training=style_discriminator(style_X,style_T)
-    L_style= style_discriminator(X_hat,T)
+        L_style_training=style_discriminator(style_X)
+    L_style= style_discriminator(X_hat)
 
 
 
