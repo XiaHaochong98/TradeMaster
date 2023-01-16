@@ -192,9 +192,12 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             def _shortcut_layer(input_tensor, out_tensor):
                 shortcut_y =  tf.layers.conv1d(inputs=input_tensor,filters=int(out_tensor.shape[-1]), kernel_size=1,
                                                  padding='same', use_bias=False)
-                shortcut_y = tf.layers.BatchNormalization(shortcut_y)
-                x = tf.add([shortcut_y, out_tensor])
-                x =tf.layers.activation(x,'relu')
+                shortcut_y = keras.layers.normalization.BatchNormalization()(shortcut_y)
+                x = keras.layers.Add()([shortcut_y, out_tensor])
+                x = keras.layers.Activation('relu')(x)
+                # shortcut_y = tf.layers.BatchNormalization(shortcut_y)
+                # x = tf.add([shortcut_y, out_tensor])
+                # x =tf.layers.activation(x,'relu')
                 return x
             def _inception_module(input_tensor):
                 if int(input_tensor.shape[-1]) > 1:
