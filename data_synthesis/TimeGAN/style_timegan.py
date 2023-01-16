@@ -192,7 +192,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             def _shortcut_layer(input_tensor, out_tensor):
                 shortcut_y =  tf.layers.conv1d(inputs=input_tensor,filters=int(out_tensor.shape[-1]), kernel_size=1,
                                                  padding='same', use_bias=False)
-                shortcut_y = keras.layers.normalization.BatchNormalization()(shortcut_y)
+                shortcut_y = tf.keras.layers.experimental.preprocessing.Normalization.BatchNormalization()(shortcut_y)
                 x = keras.layers.Add()([shortcut_y, out_tensor])
                 x = keras.layers.Activation('relu')(x)
                 # shortcut_y = tf.layers.BatchNormalization(shortcut_y)
