@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_training_data,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
+def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,training_label,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -97,11 +97,13 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
     # Input place holders
     X = tf.placeholder(tf.float32, [None, max_seq_len, dim], name="myinput_x")
+    L = tf.placeholder(tf.float32, [None, max_seq_len, nb_classes], name="myinput_L")
     Z = tf.placeholder(tf.float32, [None, max_seq_len, z_dim], name="myinput_z")
     T = tf.placeholder(tf.int32, [None], name="myinput_t")
     if style_training:
         style_T = tf.placeholder(tf.int32, [None], name="myinput_style_t")
         style_X = tf.placeholder(tf.float32, [None, style_max_seq_len, style_dim], name="myinput_style_x")
+        style_L = tf.placeholder(tf.float32, [None, style_max_seq_len, nb_classes], name="myinput_style_L")
 
     def embedder(X, T):
         """Embedding network between original feature space to latent space.
@@ -218,9 +220,12 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
                 conv_list.append(conv_6)
 
-                x = tf.concat(conv_list,axis=2)
-                x = tf.layers.BatchNormalization(x)
-                x = tf.layers.activation(x,activation='relu')
+                x = keras.layers.Concatenate(axis=2)(conv_list)
+                x = keras.layers.BatchNormalization()(x)
+                x = keras.layers.Activation(activation='relu')(x)
+                # x = tf.concat(conv_list,axis=2)
+                # x = tf.layers.BatchNormalization(x)
+                # x = tf.layers.activation(x,activation='relu')
                 return x
 
 
@@ -269,8 +274,8 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
     #TODO: pretrained InceptionTime for style classification
     if style_training:
-        L_style_training=style_discriminator(style_X)
-    L_style= style_discriminator(X_hat)
+        L_x_style_training=style_discriminator(style_X)
+    L_x_style= style_discriminator(X_hat)
 
 
 
@@ -291,8 +296,8 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
     #Style Discriminator loss
     if style_training:
-        Style_loss_training =tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(training_label), L_style_training)
-    Style_loss=tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(label), L_style)
+        Style_loss_training =tf.keras.losses.CategoricalCrossentropy(tf.convert_to_tensor(style_L), L_x_style_training)
+    Style_loss=tf.keras.losses.CategoricalCrossentropy(tf.convert_to_tensor(L), L_x_style)
 
     # Discriminator loss
     D_loss_real = tf.losses.sigmoid_cross_entropy(tf.ones_like(Y_real), Y_real)
@@ -342,9 +347,9 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
         print('start style training')
         for itt in range(iterations):
             # Set mini-batch
-            X_mb, T_mb = batch_generator(style_training_data, style_ori_time, batch_size)
+            X_mb, T_mb, L_mb = batch_generator(style_training_data, style_ori_time, batch_size,training_label)
             # Train embedder
-            _, step_style_loss = sess.run([Style_D_solver, Style_loss_training], feed_dict={X: X_mb, T: T_mb})
+            _, step_style_loss = sess.run([Style_D_solver, Style_loss_training], feed_dict={style_X: X_mb, style_T: T_mb, style_L: L_mb})
             # Checkpoint
             if itt % 100 == 0:
                 summary_writer.add_summary(step_style_loss, global_step=itt)
@@ -353,6 +358,7 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
         saver.save(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
     else:
         saver.restore(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
+        print('restore style discrimiator from '+ './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
     if only_style_training:
         print("style training done, end all process")
         return
@@ -361,9 +367,9 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
         print('Start Embedding Network Training')
         for itt in range(iterations):
             # Set mini-batch
-            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            X_mb, T_mb,L_mb = batch_generator(ori_data, ori_time, batch_size,label)
             # Train embedder
-            _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
+            _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb,L:L_mb})
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
@@ -375,7 +381,7 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
         for itt in range(iterations):
             # Set mini-batch
-            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            X_mb, T_mb,L_mb = batch_generator(ori_data, ori_time, batch_size,label)
             # Random vector generation
             Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
             # style modulation
@@ -383,7 +389,7 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
 
 
             # Train generator
-            _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
+            _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb,L:L_mb})
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
@@ -401,12 +407,12 @@ def styletimegan(ori_data, parameters,training_label,nb_classes,label,style_trai
         # Generator training (twice more than discriminator training)
         for kk in range(2):
             # Set mini-batch
-            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            X_mb, T_mb,L_mb = batch_generator(ori_data, ori_time, batch_size,label)
             # Random vector generation
             Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
             # Train generator
             _, step_g_loss_u, step_g_loss_s, step_g_loss_v,step_g_loss_style = sess.run([G_solver, G_loss_U, G_loss_S, G_loss_V,Style_loss],
-                                                                      feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
+                                                                      feed_dict={Z: Z_mb, X: X_mb, T: T_mb,L:L_mb})
             # Train embedder
             _, step_e_loss_t0 = sess.run([E_solver, E_loss_T0], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
 
