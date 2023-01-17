@@ -97,13 +97,13 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
 
     # Input place holders
     X = tf.placeholder(tf.float32, [None, max_seq_len, dim], name="myinput_x")
-    L = tf.placeholder(tf.float32, [None, max_seq_len, nb_classes], name="myinput_L")
+    L = tf.placeholder(tf.float32, [None, nb_classes], name="myinput_L")
     Z = tf.placeholder(tf.float32, [None, max_seq_len, z_dim], name="myinput_z")
     T = tf.placeholder(tf.int32, [None], name="myinput_t")
     if style_training:
         style_T = tf.placeholder(tf.int32, [None], name="myinput_style_t")
         style_X = tf.placeholder(tf.float32, [None, style_max_seq_len, style_dim], name="myinput_style_x")
-        style_L = tf.placeholder(tf.float32, [None, style_max_seq_len, nb_classes], name="myinput_style_L")
+        style_L = tf.placeholder(tf.float32, [None,nb_classes], name="myinput_style_L")
 
     def embedder(X, T):
         """Embedding network between original feature space to latent space.
@@ -192,7 +192,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             def _shortcut_layer(input_tensor, out_tensor):
                 shortcut_y =  tf.layers.conv1d(inputs=input_tensor,filters=int(out_tensor.shape[-1]), kernel_size=1,
                                                  padding='same', use_bias=False)
-                shortcut_y = tf.keras.layers.experimental.preprocessing.Normalization.BatchNormalization()(shortcut_y)
+                shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
                 x = keras.layers.Add()([shortcut_y, out_tensor])
                 x = keras.layers.Activation('relu')(x)
                 # shortcut_y = tf.layers.BatchNormalization(shortcut_y)
@@ -242,11 +242,12 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
                 if  d % 3 == 2:
                     x = _shortcut_layer(input_res, x)
                     input_res = x
-
-            gap_layer = tf.layers.globalAveragePooling1d(x)
-
+            print(x.get_shape())
+            gap_layer = keras.layers.GlobalAveragePooling1D()(x)
+            # gap_layer = tf.layers.globalAveragePooling1d(x)
+            print(gap_layer.get_shape())
             output_layer = tf.layers.dense(gap_layer,nb_classes, activation='softmax')
-
+            print(output_layer.get_shape())
             return output_layer
 
 
@@ -278,6 +279,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
     #TODO: pretrained InceptionTime for style classification
     if style_training:
         L_x_style_training=style_discriminator(style_X)
+        print('L_x_style_training',L_x_style_training.get_shape())
     L_x_style= style_discriminator(X_hat)
 
 
@@ -299,8 +301,9 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
 
     #Style Discriminator loss
     if style_training:
-        Style_loss_training =tf.keras.losses.CategoricalCrossentropy(tf.convert_to_tensor(style_L), L_x_style_training)
-    Style_loss=tf.keras.losses.CategoricalCrossentropy(tf.convert_to_tensor(L), L_x_style)
+        print('style_L',style_L.get_shape())
+        Style_loss_training =tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(style_L), L_x_style_training)
+    Style_loss=tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(L), L_x_style)
 
     # Discriminator loss
     D_loss_real = tf.losses.sigmoid_cross_entropy(tf.ones_like(Y_real), Y_real)
@@ -338,7 +341,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
     G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=g_vars + s_vars)
     GS_solver = tf.train.AdamOptimizer().minimize(G_loss_S, var_list=g_vars + s_vars)
     if style_training:
-      Style_D_solver  = tf.train.AdamOptimizer().minimize(Style_loss_training, var_list=style_vars)
+        Style_D_solver  =tf.train.AdamOptimizer().minimize(Style_loss_training)
 
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -350,12 +353,13 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
         print('start style training')
         for itt in range(iterations):
             # Set mini-batch
-            X_mb, T_mb, L_mb = batch_generator(style_training_data, style_ori_time, batch_size,training_label)
+            X_mb, T_mb, L_mb = batch_generator(style_training_data, style_ori_time, 64 ,training_label)
             # Train embedder
             _, step_style_loss = sess.run([Style_D_solver, Style_loss_training], feed_dict={style_X: X_mb, style_T: T_mb, style_L: L_mb})
             # Checkpoint
             if itt % 100 == 0:
-                summary_writer.add_summary(step_style_loss, global_step=itt)
+                print('itt:',itt,'step_style_loss:',step_style_loss)
+                # summary_writer.add_summary(step_style_loss, global_step=itt)
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
         saver.save(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
