@@ -123,7 +123,7 @@ def random_generator (batch_size, z_dim, T_mb, max_seq_len):
   return Z_mb
 
 
-def batch_generator(data, time, batch_size,label):
+def batch_generator(data, time, batch_size,label=None):
   """Mini-batch generator.
   
   Args:
@@ -141,7 +141,9 @@ def batch_generator(data, time, batch_size,label):
 
   X_mb = list(data[i] for i in train_idx)
   T_mb = list(time[i] for i in train_idx)
-  L_mb = list(label[i] for i in train_idx)
-
-  return X_mb, T_mb,L_mb
+  if label:
+    L_mb = list(label[i] for i in train_idx)
+    return X_mb, T_mb,L_mb
+  else:
+    return X_mb, T_mb
 

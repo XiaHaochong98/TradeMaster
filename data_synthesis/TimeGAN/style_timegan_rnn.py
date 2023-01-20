@@ -30,7 +30,7 @@ import sklearn.metrics as skm
 import json
 from collections import Counter
 
-def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,training_label,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
+def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style_training_label,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -201,7 +201,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             outputs_forward, state_forward = tf.nn.dynamic_rnn(rnn_stack_forward, input_tensor , dtype = tf.float32)
                 # backward rnn            
             x_backward_ = tf.reverse(input_tensor, axis=[1], name='x_backward_')
-            rnn_cells_backward = [tf.nn.rnn_cell.BasicLSTMCell(num_units=n, activation=state_activation) for n in range(rnn_units)]
+            rnn_cells_backward = [tf.nn.rnn_cell.BasicLSTMCell(num_units=n, activation=state_activation) for n in rnn_units]
             rnn_stack_backward = tf.nn.rnn_cell.MultiRNNCell(rnn_cells_backward)
             outputs_backward, state_backward = tf.nn.dynamic_rnn(rnn_stack_backward, x_backward_, dtype = tf.float32)
             output = tf.concat([outputs_forward[:,-1,:],outputs_backward[:,-1,:]],axis=-1) # [batch_size,2*self.configure.rnn_units[-1]]
@@ -247,7 +247,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
     #TODO: pretrained InceptionTime for style classification
     if style_training:
         L_x_style_training=style_discriminator(style_X,style_training_flag)
-        print('L_x_style_training',L_x_style_training.get_shape())
+        # print('L_x_style_training',L_x_style_training.get_shape())
     L_x_style= style_discriminator(X_hat,style_training_flag)
 
 
@@ -269,9 +269,12 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
 
     #Style Discriminator loss
     if style_training:
-        print('style_L',style_L.get_shape())
-        Style_loss_training =tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(style_L), L_x_style_training)
-    Style_loss=tf.losses.sigmoid_cross_entropy(tf.convert_to_tensor(L), L_x_style)
+        # print('style_L',style_L.get_shape())
+        Style_loss_training=(tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(labels=style_L,logits=L_x_style_training))/tf.cast(tf.shape(L_x_style_training)[0],tf.float32))
+        Style_accuracy_training = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(style_L,1), tf.argmax(L_x_style_training,1)), tf.float32), name='accuracy')
+        # Style_loss_training =tf.losses.sigmoid_cross_entropy(style_L, L_x_style_training)
+    Style_loss=tf.losses.sigmoid_cross_entropy(L, L_x_style)
+    Style_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(L,1), tf.argmax(L_x_style,1)), tf.float32), name='accuracy')
 
     # Discriminator loss
     D_loss_real = tf.losses.sigmoid_cross_entropy(tf.ones_like(Y_real), Y_real)
@@ -313,23 +316,25 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
 
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    summary_writer = tf.summary.FileWriter('./log/style/', sess.graph)
+    # summary_writer = tf.summary.create_file_writer('./log/style/')
+    summary_writer = tf.summary.FileWriter('./log/style/') # Tensorboard
+    summary_writer.add_graph(sess.graph)
     ## TimeGAN training
     #0. Style Discriminator training
     saver = tf.train.Saver()
     if style_training:
         print('start style training')
-        for itt in range(iterations):
+        for itt in range(120000):
             # Set mini-batch
-            X_mb, T_mb, L_mb = batch_generator(style_training_data, style_ori_time, 64 ,training_label)
+            X_mb, T_mb, L_mb = batch_generator(style_training_data, style_ori_time, 256 ,style_training_label)
             # Train embedder
-            _, step_style_loss = sess.run([Style_D_solver, Style_loss_training], feed_dict={style_X: X_mb, style_T: T_mb, style_L: L_mb,style_training_flag:True})
+            _, step_style_loss,style_acc = sess.run([Style_D_solver, Style_loss_training,Style_accuracy_training], feed_dict={style_X: X_mb, style_T: T_mb, style_L: L_mb,style_training_flag:True})
             # Checkpoint
             if itt % 100 == 0:
-                print('itt:',itt,'step_style_loss:',step_style_loss)
+                print('itt:',itt,'step_style_loss:',step_style_loss,'acc: ',style_acc)
                 # summary_writer.add_summary(step_style_loss, global_step=itt)
-            if itt % 1000 == 0:
-                print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
+            # if itt % 1000 == 0:
+            #     print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
         saver.save(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
     else:
         saver.restore(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
@@ -344,9 +349,9 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             # Set mini-batch
             X_mb, T_mb,L_mb = batch_generator(ori_data, ori_time, batch_size,label)
             # Train embedder
-            _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb,L:L_mb,style_training_flag:False})
+            _, step_e_loss= sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb,L:L_mb,style_training_flag:False})
             # Checkpoint
-            if itt % 1000 == 0:
+            if itt % 100 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
 
         print('Finish Embedding Network Training')
@@ -386,38 +391,45 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
             # Random vector generation
             Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
             # Train generator
-            _, step_g_loss_u, step_g_loss_s, step_g_loss_v,step_g_loss_style = sess.run([G_solver, G_loss_U, G_loss_S, G_loss_V,Style_loss],
+            _, step_g_loss_u, step_g_loss_s, step_g_loss_v,g_step_style_loss, g_step_style_acc = sess.run([G_solver, G_loss_U, G_loss_S, G_loss_V,Style_loss,Style_accuracy],
                                                                       feed_dict={Z: Z_mb, X: X_mb, T: T_mb,L:L_mb,style_training_flag:False})
             # Train embedder
-            _, step_e_loss_t0 = sess.run([E_solver, E_loss_T0], feed_dict={Z: Z_mb, X: X_mb, T: T_mb,style_training_flag:False})
+            _, step_e_loss_t0,e_step_style_loss,e_step_style_acc = sess.run([E_solver, E_loss_T0,Style_loss,Style_accuracy], feed_dict={Z: Z_mb, X: X_mb, T: T_mb,L:L_mb,style_training_flag:False})
 
             # Discriminator training
         # Set mini-batch
-        X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+        X_mb, T_mb,L_mb = batch_generator(ori_data, ori_time, batch_size,label)
         # Random vector generation
         Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
         # Check discriminator loss before updating
-        check_d_loss = sess.run(D_loss, feed_dict={X: X_mb, T: T_mb, Z: Z_mb,style_training_flag:False})
+        check_d_loss = sess.run(D_loss, feed_dict={X: X_mb, T: T_mb, Z: Z_mb,L:L_mb,style_training_flag:False})
         # Train discriminator (only when the discriminator does not work well)
         if (check_d_loss > 0.15):
-            _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb,style_training_flag:False})
+            _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb,L:L_mb,style_training_flag:False})
 
         # Print multiple checkpoints
         if itt % 100 == 0:
-            summary_writer.add_summary(step_d_loss, global_step=itt)
-            summary_writer.add_summary(step_g_loss_u, global_step=itt)
-            summary_writer.add_summary(step_g_loss_s, global_step=itt)
-            summary_writer.add_summary(step_g_loss_v, global_step=itt)
-            summary_writer.add_summary(step_e_loss_t0, global_step=itt)
-            summary_writer.add_summary(step_g_loss_style, global_step=itt)
-        if itt % 1000 == 0:
+            # with summary_writer.as_default():
+            tf.summary.scalar("step_d_loss",step_d_loss)
+            tf.summary.scalar("step_g_loss_u",step_g_loss_u)
+            tf.summary.scalar("step_g_loss_s",step_g_loss_s)
+            tf.summary.scalar("step_g_loss_v",step_g_loss_v)
+            tf.summary.scalar("step_e_loss_t0",step_e_loss_t0)
+            tf.summary.scalar("e_step_style_loss",e_step_style_loss)
+            tf.summary.scalar("e_step_style_acc",e_step_style_acc)
+            tf.summary.scalar("g_step_style_loss",g_step_style_loss)
+            tf.summary.scalar("g_step_style_acc",g_step_style_acc)
+        if itt % 200 == 0:
             print('step: ' + str(itt) + '/' + str(iterations) +
                   ', d_loss: ' + str(np.round(step_d_loss, 4)) +
                   ', g_loss_u: ' + str(np.round(step_g_loss_u, 4)) +
                   ', g_loss_s: ' + str(np.round(np.sqrt(step_g_loss_s), 4)) +
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
                   ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4))+
-                  ', g_loss_style: ' + str(np.round(step_g_loss_style, 4))
+                  ', e_style_loss: '+str(np.round(e_step_style_loss, 4))+
+                  ', e_style_acc: '+str(np.round(e_step_style_acc, 4))+
+                  ', g_style_loss: '+str(np.round(g_step_style_loss, 4))+
+                  ', g_style_acc: '+str(np.round(g_step_style_acc, 4))
                   )
             # Now, save the graph
 
@@ -426,7 +438,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,train
 
     ## Synthetic data generation
     Z_mb = random_generator(no, z_dim, ori_time, max_seq_len)
-    generated_data_curr = sess.run(X_hat, feed_dict={Z: Z_mb, X: ori_data, T: ori_time,style_training_flag:False})
+    generated_data_curr = sess.run(X_hat, feed_dict={Z: Z_mb, X: ori_data, T: ori_time,L:L_mb,style_training_flag:False})
 
     generated_data = list()
 
