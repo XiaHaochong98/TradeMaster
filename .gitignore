@@ -7,3 +7,4 @@
 /data_synthesis/TimeGAN/model/
 /data_synthesis/TimeGAN/log/
 /data_synthesis/TimeGAN/style_discriminator/
+/data_synthesis/TimeGAN/training_log/

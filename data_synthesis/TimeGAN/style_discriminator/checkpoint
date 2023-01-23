@@ -1,2 +1,2 @@
-model_checkpoint_path: "style_discriminator_data_seg_GOOG_0_.ckpt"
-all_model_checkpoint_paths: "style_discriminator_data_seg_GOOG_0_.ckpt"
+model_checkpoint_path: "style_discriminator.ckpt"
+all_model_checkpoint_paths: "style_discriminator.ckpt"

@@ -26,8 +26,10 @@ from utils import extract_time, rnn_cell, random_generator, batch_generator
 
 from tsai.all import *
 import sklearn.metrics as skm
+from datetime import datetime
+import time
 
-def timegan(ori_data, parameters, model_name,device=0,save_name=None):
+def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=False):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -40,9 +42,16 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
       - generated_data: generated time-series data
     """
     # Initialization on the Graph
+    old_stdout = sys.stdout
+    ts = time.time()
+    dt_object = datetime.fromtimestamp(ts)
+    log_file = open("./training_log/ori/timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
+
+    sys.stdout = log_file
+    
+    
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
-
     # Basic Parameters
     no, seq_len, dim = np.asarray(ori_data).shape
 
@@ -255,42 +264,49 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
     ## TimeGAN training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-
+    if not os.path.exists('./log/ori/'+str(save_name)):
+      os.makedirs('./log/ori/'+str(save_name))
+    summary_writer = tf.summary.FileWriter('./log/ori/'+str(save_name))
+    summary_writer.add_graph(sess.graph)
     # 1. Embedding network training
-    print('Start Embedding Network Training')
+    if not from_join_training:
+        print('Start Embedding Network Training')
 
-    for itt in range(iterations):
-        # Set mini-batch
-        X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
-        # Train embedder
-        _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
-        # Checkpoint
-        if itt % 1000 == 0:
-            print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
+        for itt in range(iterations):
+            # Set mini-batch
+            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            # Train embedder
+            _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
+            # Checkpoint
+            if itt % 1000 == 0:
+                print('step: ' + str(itt) + '/' + str(iterations) + ', e_loss: ' + str(np.round(np.sqrt(step_e_loss), 4)))
 
-    print('Finish Embedding Network Training')
+        print('Finish Embedding Network Training')
 
-    # 2. Training only with supervised loss
-    print('Start Training with Supervised Loss Only')
+        # 2. Training only with supervised loss
+        print('Start Training with Supervised Loss Only')
 
-    for itt in range(iterations):
-        # Set mini-batch
-        X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
-        # Random vector generation
-        Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
-        # style modulation
-        #TODO: modulate style to Z
+        for itt in range(iterations):
+            # Set mini-batch
+            X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
+            # Random vector generation
+            Z_mb = random_generator(batch_size, z_dim, T_mb, max_seq_len)
+            # style modulation
+            #TODO: modulate style to Z
 
 
-        # Train generator
-        _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
-        # Checkpoint
-        if itt % 1000 == 0:
-            print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
-
-    print('Finish Training with Supervised Loss Only')
-
-    saver = tf.train.Saver()
+            # Train generator
+            _, step_g_loss_s = sess.run([GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb})
+            # Checkpoint
+            if itt % 1000 == 0:
+                print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
+        saver = tf.train.Saver()
+        saver.save(sess, './model/ori/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
+        print('Finish Training with Supervised Loss Only')
+    else:
+        saver = tf.train.Saver()
+        saver.restore(sess, './model/ori/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
+        print('restore model before joint training')
 
 
 
@@ -322,6 +338,12 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
             _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb})
 
         # Print multiple checkpoints
+        # if itt % 100 == 0:
+        #     tf.summary.scalar("step_d_loss",step_d_loss)
+        #     tf.summary.scalar("step_g_loss_u",step_g_loss_u)
+        #     tf.summary.scalar("step_g_loss_s",step_g_loss_s)
+        #     tf.summary.scalar("step_g_loss_v",step_g_loss_v)
+        #     tf.summary.scalar("step_e_loss_t0",step_e_loss_t0)
         if itt % 1000 == 0:
             print('step: ' + str(itt) + '/' + str(iterations) +
                   ', d_loss: ' + str(np.round(step_d_loss, 4)) +
@@ -330,7 +352,7 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
                   ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4)))
             # Now, save the graph
-            saver.save(sess, './model/join_training_model_'+str(save_name)+str(model_name), global_step=itt)
+            saver.save(sess, './model/ori/join_training_model_'+str(save_name), global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
@@ -346,4 +368,9 @@ def timegan(ori_data, parameters, model_name,device=0,save_name=None):
     # Renormalization
     generated_data = generated_data * max_val
     generated_data = generated_data + min_val
+    
+    sys.stdout = old_stdout
+
+    log_file.close()
+    
     return generated_data

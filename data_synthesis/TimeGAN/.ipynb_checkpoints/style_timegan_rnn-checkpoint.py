@@ -29,6 +29,9 @@ import pickle
 import sklearn.metrics as skm
 import json
 from collections import Counter
+import sys
+from datetime import datetime
+import time
 
 def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style_training_label,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.
@@ -44,6 +47,14 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     """
     # Initialization on the Graph
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+    
+    old_stdout = sys.stdout
+    ts = time.time()
+    dt_object = datetime.fromtimestamp(ts)
+    log_file = open("./training_log/style/style_timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
+
+    sys.stdout = log_file
+
 
     tf.reset_default_graph()
     # tf.enable_eager_execution()
@@ -317,9 +328,14 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     # summary_writer = tf.summary.create_file_writer('./log/style/')
-    summary_writer = tf.summary.FileWriter('./log/style/') # Tensorboard
+    if not os.path.exists('./log/style/'+str(save_name)):
+      os.makedirs('./log/style/'+str(save_name))
+    summary_writer = tf.summary.FileWriter('./log/style/'+str(save_name)) # Tensorboard
     summary_writer.add_graph(sess.graph)
     ## TimeGAN training
+    
+    
+    
     #0. Style Discriminator training
     saver = tf.train.Saver()
     if style_training:
@@ -335,13 +351,19 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
                 # summary_writer.add_summary(step_style_loss, global_step=itt)
             # if itt % 1000 == 0:
             #     print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
-        saver.save(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
+        saver.save(sess, './style_discriminator/style_discriminator.ckpt')
     else:
-        saver.restore(sess, './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
-        print('restore style discrimiator from '+ './style_discriminator/style_discriminator_' + str(save_name) + '.ckpt')
+        saver.restore(sess, './style_discriminator/style_discriminator.ckpt')
+        print('restore style discrimiator from '+ './style_discriminator/style_discriminator.ckpt')
     if only_style_training:
         print("style training done, end all process")
         return
+      
+      
+      
+      
+      
+    print(from_join_training)
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
@@ -373,11 +395,11 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
-        saver.save(sess, './model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
-        print('Finish Training with Supervised Loss Only')
+        saver.save(sess, './model/style/single_training/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
+        print('Finish Training with Supervised Loss Only and save model to '+'./model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
     else:
-        saver.restore(sess, './model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
-        print('restore model before joint training')
+        saver.restore(sess, './model/style/single_training/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
+        print('restore model before joint training from '+ './model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
 
 
     # 3. Joint Training
@@ -431,9 +453,9 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
                   ', g_style_loss: '+str(np.round(g_step_style_loss, 4))+
                   ', g_style_acc: '+str(np.round(g_step_style_acc, 4))
                   )
-            # Now, save the graph
-
-            saver.save(sess, './model/style/join_training_model_'+str(save_name)+'_add_style.ckpt', global_step=itt)
+          # Now, save the graph
+        if itt % 1000 == 0:
+            saver.save(sess, './model/style/joint_training/join_training_model_'+str(save_name)+'_add_style.ckpt', global_step=itt)
     print('Finish Joint Training')
 
     ## Synthetic data generation
@@ -449,4 +471,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     # Renormalization
     generated_data = generated_data * max_val
     generated_data = generated_data + min_val
+    
+    sys.stdout = old_stdout
+
+    log_file.close()
     return generated_data

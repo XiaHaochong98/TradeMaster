@@ -29,6 +29,8 @@ import pickle
 import sklearn.metrics as skm
 import json
 from collections import Counter
+from datetime import datetime
+import time
 
 def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,training_label,style_training=True,only_style_training=False,save_name=None,from_join_training=False):
     """TimeGAN function.

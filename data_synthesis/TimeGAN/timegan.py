@@ -26,6 +26,8 @@ from utils import extract_time, rnn_cell, random_generator, batch_generator
 
 from tsai.all import *
 import sklearn.metrics as skm
+from datetime import datetime
+import time
 
 def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=False):
     """TimeGAN function.
@@ -40,6 +42,14 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
       - generated_data: generated time-series data
     """
     # Initialization on the Graph
+    old_stdout = sys.stdout
+    ts = time.time()
+    dt_object = datetime.fromtimestamp(ts)
+    log_file = open("./training_log/ori/timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
+
+    sys.stdout = log_file
+    
+    
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
     tf.reset_default_graph()
     # Basic Parameters
@@ -254,7 +264,10 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     ## TimeGAN training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    summary_writer = tf.summary.FileWriter('./log/ori/', sess.graph)
+    if not os.path.exists('./log/ori/'+str(save_name)):
+      os.makedirs('./log/ori/'+str(save_name))
+    summary_writer = tf.summary.FileWriter('./log/ori/'+str(save_name))
+    summary_writer.add_graph(sess.graph)
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
@@ -325,12 +338,12 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
             _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb})
 
         # Print multiple checkpoints
-        if itt % 100 == 0:
-            summary_writer.add_summary(step_d_loss, global_step=itt)
-            summary_writer.add_summary(step_g_loss_u, global_step=itt)
-            summary_writer.add_summary(step_g_loss_s, global_step=itt)
-            summary_writer.add_summary(step_g_loss_v, global_step=itt)
-            summary_writer.add_summary(step_e_loss_t0, global_step=itt)
+        # if itt % 100 == 0:
+        #     tf.summary.scalar("step_d_loss",step_d_loss)
+        #     tf.summary.scalar("step_g_loss_u",step_g_loss_u)
+        #     tf.summary.scalar("step_g_loss_s",step_g_loss_s)
+        #     tf.summary.scalar("step_g_loss_v",step_g_loss_v)
+        #     tf.summary.scalar("step_e_loss_t0",step_e_loss_t0)
         if itt % 1000 == 0:
             print('step: ' + str(itt) + '/' + str(iterations) +
                   ', d_loss: ' + str(np.round(step_d_loss, 4)) +
@@ -355,4 +368,9 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     # Renormalization
     generated_data = generated_data * max_val
     generated_data = generated_data + min_val
+    
+    sys.stdout = old_stdout
+
+    log_file.close()
+    
     return generated_data
