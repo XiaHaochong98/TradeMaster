@@ -24,7 +24,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from utils import extract_time, rnn_cell, random_generator, batch_generator
 
-from tsai.all import *
+# from tsai.all import *
 import pickle
 import sklearn.metrics as skm
 import json
@@ -51,6 +51,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     old_stdout = sys.stdout
     ts = time.time()
     dt_object = datetime.fromtimestamp(ts)
+    if not os.path.exists('./training_log/style/'):
+        os.makedirs('./training_log/style/')
     log_file = open("./training_log/style/style_timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
 
     sys.stdout = log_file
@@ -329,7 +331,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     sess.run(tf.global_variables_initializer())
     # summary_writer = tf.summary.create_file_writer('./log/style/')
     if not os.path.exists('./log/style/'+str(save_name)):
-      os.makedirs('./log/style/'+str(save_name))
+        os.makedirs('./log/style/'+str(save_name))
     summary_writer = tf.summary.FileWriter('./log/style/'+str(save_name)) # Tensorboard
     summary_writer.add_graph(sess.graph)
     ## TimeGAN training
@@ -351,6 +353,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
                 # summary_writer.add_summary(step_style_loss, global_step=itt)
             # if itt % 1000 == 0:
             #     print('step: ' + str(itt) + '/' + str(iterations) + ', style_loss: ' + str(np.round(np.sqrt(step_style_loss), 4)))
+        if not os.path.exists('./style_discriminator/'):
+            os.makedirs('./style_discriminator/')
         saver.save(sess, './style_discriminator/style_discriminator.ckpt')
     else:
         saver.restore(sess, './style_discriminator/style_discriminator.ckpt')
@@ -363,7 +367,6 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
       
       
       
-    print(from_join_training)
     # 1. Embedding network training
     if not from_join_training:
         print('Start Embedding Network Training')
@@ -395,6 +398,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
             # Checkpoint
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
+        if not os.path.exists('./model/style/single_training'):
+            os.makedirs('./model/style/single_training')
         saver.save(sess, './model/style/single_training/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('Finish Training with Supervised Loss Only and save model to '+'./model/style/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
     else:
@@ -455,6 +460,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
                   )
           # Now, save the graph
         if itt % 1000 == 0:
+            if not os.path.exists('./model/style/joint_training'):
+                os.makedirs('./model/style/joint_training')
             saver.save(sess, './model/style/joint_training/join_training_model_'+str(save_name)+'_add_style.ckpt', global_step=itt)
     print('Finish Joint Training')
 

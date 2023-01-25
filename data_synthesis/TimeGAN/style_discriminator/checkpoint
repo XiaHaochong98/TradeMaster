@@ -1,2 +1,0 @@
-model_checkpoint_path: "style_discriminator.ckpt"
-all_model_checkpoint_paths: "style_discriminator.ckpt"
