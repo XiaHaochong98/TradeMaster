@@ -53,7 +53,10 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     dt_object = datetime.fromtimestamp(ts)
     if not os.path.exists('./training_log/style/'):
         os.makedirs('./training_log/style/')
-    log_file = open("./training_log/style/style_timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
+    if only_style_training:
+        log_file = open("./training_log/style/style_discriminator"+'_'+str(dt_object)+".log","w")
+    else:
+        log_file = open("./training_log/style/style_timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
 
     sys.stdout = log_file
 
@@ -103,6 +106,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     hidden_dim = parameters['hidden_dim']
     num_layers = parameters['num_layer']
     iterations = parameters['iterations']
+    iterations_large = parameters['iterations_large']
     batch_size = parameters['batch_size']
     module_name = parameters['module']
     z_dim = dim
@@ -410,7 +414,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
     # 3. Joint Training
     print('Start Joint Training')
 
-    for itt in range(iterations):
+    for itt in range(iterations_large):
         # Generator training (twice more than discriminator training)
         for kk in range(2):
             # Set mini-batch
@@ -435,7 +439,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
             _, step_d_loss = sess.run([D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb,L:L_mb,style_training_flag:False})
 
         # Print multiple checkpoints
-        if itt % 100 == 0:
+        if itt % 200 == 0:
             # with summary_writer.as_default():
             tf.summary.scalar("step_d_loss",step_d_loss)
             tf.summary.scalar("step_g_loss_u",step_g_loss_u)
@@ -446,8 +450,8 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
             tf.summary.scalar("e_step_style_acc",e_step_style_acc)
             tf.summary.scalar("g_step_style_loss",g_step_style_loss)
             tf.summary.scalar("g_step_style_acc",g_step_style_acc)
-        if itt % 200 == 0:
-            print('step: ' + str(itt) + '/' + str(iterations) +
+        if itt % 500 == 0:
+            print('step: ' + str(itt) + '/' + str(iterations_large) +
                   ', d_loss: ' + str(np.round(step_d_loss, 4)) +
                   ', g_loss_u: ' + str(np.round(step_g_loss_u, 4)) +
                   ', g_loss_s: ' + str(np.round(np.sqrt(step_g_loss_s), 4)) +
@@ -459,7 +463,7 @@ def styletimegan(ori_data,label, parameters,nb_classes,style_training_data,style
                   ', g_style_acc: '+str(np.round(g_step_style_acc, 4))
                   )
           # Now, save the graph
-        if itt % 1000 == 0:
+        if itt % 3000 == 0:
             if not os.path.exists('./model/style/joint_training'):
                 os.makedirs('./model/style/joint_training')
             saver.save(sess, './model/style/joint_training/join_training_model_'+str(save_name)+'_add_style.ckpt', global_step=itt)
