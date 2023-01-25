@@ -24,10 +24,11 @@ import tensorflow as tf
 
 from utils import extract_time, rnn_cell, random_generator, batch_generator
 
-from tsai.all import *
+# from tsai.all import *
 import sklearn.metrics as skm
 from datetime import datetime
 import time
+import sys
 
 def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=False):
     """TimeGAN function.
@@ -45,6 +46,8 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     old_stdout = sys.stdout
     ts = time.time()
     dt_object = datetime.fromtimestamp(ts)
+    if not os.path.exists('./training_log/ori/'):
+        os.makedirs('./training_log/ori/')
     log_file = open("./training_log/ori/timegan_"+str(save_name)+'_'+str(dt_object)+".log","w")
 
     sys.stdout = log_file
@@ -265,7 +268,7 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     if not os.path.exists('./log/ori/'+str(save_name)):
-      os.makedirs('./log/ori/'+str(save_name))
+        os.makedirs('./log/ori/'+str(save_name))
     summary_writer = tf.summary.FileWriter('./log/ori/'+str(save_name))
     summary_writer.add_graph(sess.graph)
     # 1. Embedding network training
@@ -301,6 +304,8 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
             if itt % 1000 == 0:
                 print('step: ' + str(itt) + '/' + str(iterations) + ', s_loss: ' + str(np.round(np.sqrt(step_g_loss_s), 4)))
         saver = tf.train.Saver()
+        if not os.path.exists('./model/ori/'):
+            os.makedirs('./model/ori/')
         saver.save(sess, './model/ori/before_join_training_model_' + str(save_name) + '_add_style.ckpt')
         print('Finish Training with Supervised Loss Only')
     else:
@@ -352,6 +357,8 @@ def timegan(ori_data, parameters,device=0,save_name=None,from_join_training=Fals
                   ', g_loss_v: ' + str(np.round(step_g_loss_v, 4)) +
                   ', e_loss_t0: ' + str(np.round(np.sqrt(step_e_loss_t0), 4)))
             # Now, save the graph
+            if not os.path.exists('./model/ori/'):
+                os.makedirs('./model/ori/')
             saver.save(sess, './model/ori/join_training_model_'+str(save_name), global_step=itt)
     print('Finish Joint Training')
 
