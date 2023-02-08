@@ -336,6 +336,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
     random_seed=random.randint(1, 100000)
+    print('random_seed',random_seed)
     ori_train_data, ori_test_data, ori_train_time, ori_test_time = train_test_split(
         ori_data, ori_time, test_size=args['train_rate'],random_state=random_seed
     )
