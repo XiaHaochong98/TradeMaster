@@ -365,10 +365,11 @@ def post_hoc_discriminator(ori_data, generated_data):
     discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
     optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=0.998)
-    logger = trange(args["epochs"], desc=f"Epoch: 0, real_loss: 0, fake_loss: 0")
+    logger = trange(args["epochs"], desc=f"Epoch: 0,loss: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
         running_fake_loss = 0.0
+        running_loss = 0.0
         for generated_data, generated_time, ori_data, ori_time in train_dataloader:
             generated_data=generated_data.to(args["device"])
             # generated_time=generated_time.to(args["device"])
@@ -389,8 +390,9 @@ def post_hoc_discriminator(ori_data, generated_data):
 
             running_real_loss += D_loss_real.item()
             running_fake_loss += D_loss_fake.item()
+            running_loss +=D_loss.item()
 
-        logger.set_description(f"Epoch: {epoch}, real_loss: {running_real_loss:.4f}, fake_loss: {running_fake_loss:.4f}")
+        logger.set_description(f"Epoch: {epoch},loss: {running_loss:.4f}, real_loss: {running_real_loss:.4f}, fake_loss: {running_fake_loss:.4f}")
     # Evaluate the discriminator on the test set
     with torch.no_grad():
         discriminative_score = []
