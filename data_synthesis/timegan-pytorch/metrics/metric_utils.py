@@ -325,7 +325,6 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["model_type"] = "gru"
     args["epochs"] = 2000
     args["batch_size"] = 128
-    args["hidden_dim"] = int(dim/2)
     args["num_layers"] = 3
     args["padding_value"] = -1.0
     args["max_seq_len"] = 100
@@ -341,6 +340,7 @@ def post_hoc_discriminator(ori_data, generated_data):
         generated_data, generated_time, test_size=args.train_rate,random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
+    args["hidden_dim"] = int(dim / 2)
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
     test_dataset=DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
                                          ori_time=ori_test_time, generated_time=generated_test_time)
