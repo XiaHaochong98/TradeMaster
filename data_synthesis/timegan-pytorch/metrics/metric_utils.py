@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 
 from metrics.general_rnn import GeneralRNN
 from metrics.dataset import FeaturePredictionDataset, OneStepPredictionDataset, DiscriminatorDataset
+import random
 
 def rmse_error(y_true, y_pred):
     """User defined root mean squared error.
@@ -319,7 +320,6 @@ class DiscriminatorNetwork(torch.nn.Module):
 
 
 def post_hoc_discriminator(ori_data, generated_data):
-    no, seq_len, dim = ori_data.shape
     args = {}
     args["device"] = "cuda"
     args["model_type"] = "gru"
@@ -331,17 +331,18 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
 
-
-
-    ori_train, ori_test, generated_train, generated_test = train_test_split(
-        ori_data, generated_data, test_size=args.train_rate
+    ori_data,ori_time=ori_data
+    generated_data,generated_time=generated_data
+    random_seed=random.randint(1, 100000)
+    ori_train_data, ori_test_data, ori_train_time, ori_test_time = train_test_split(
+        ori_data, ori_time, test_size=args.train_rate,random_state=random_seed
     )
-    ori_train_data,ori_train_time=ori_train
-    ori_test_data,ori_test_time=ori_test
-    generated_train_data,generated_train_time=generated_train
-    generated_test_data,generated_test_time=generated_test
+    generated_train_data, generated_test_data, generated_train_time, generated_test_time = train_test_split(
+        generated_data, generated_time, test_size=args.train_rate,random_state=random_seed
+    )
+    no, seq_len, dim = ori_data.shape
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
-    test_dataset = DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
+    test_dataset=DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
                                          ori_time=ori_test_time, generated_time=generated_test_time)
 
     train_dataloader = torch.utils.data.DataLoader(

@@ -151,6 +151,17 @@ def main(args):
     # Evaluate the performance
     #########################
 
+    # 0.post-hoc discriminator
+    start = time.time()
+    print("Running post-hoc discriminator...")
+    post_hoc_discriminator_score = post_hoc_discriminator(
+        (train_data, train_time),
+        (generated_data, generated_time)
+    )
+    print('Discriminator_score results:\n' +
+          f': {str(np.round(post_hoc_discriminator_score, 4))}\n')
+    print(f"Total Runtime: {(time.time() - start) / 60} mins\n")
+
     # 1. Feature prediction
     feat_idx = np.random.permutation(train_data.shape[2])[:args.feat_pred_no]
     print("Running feature prediction using original data...")
@@ -192,16 +203,6 @@ def main(args):
 
     print(f"Total Runtime: {(time.time() - start)/60} mins\n")
 
-    # 3.post-hoc discriminator
-    start = time.time()
-    print("Running post-hoc discriminator...")
-    post_hoc_discriminator_score=post_hoc_discriminator(
-        (train_data,train_time),
-        (generated_data, generated_time)
-    )
-    print('Discriminator_score results:\n' +
-          f': {str(np.round(post_hoc_discriminator_score, 4))}\n' )
-    print(f"Total Runtime: {(time.time() - start) / 60} mins\n")
     return None
 
 def str2bool(v):
