@@ -324,14 +324,14 @@ def post_hoc_discriminator(ori_data, generated_data):
     args = {}
     args["device"] = "cuda"
     args["model_type"] = "gru"
-    args["epochs"] = 2000
+    args["epochs"] = 3000
     args["batch_size"] = 128
     args["num_layers"] = 6
     args["padding_value"] = -1.0
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
     args["train_rate"] = 0.8
-    args["learning_rate"] = 1e-4
+    args["learning_rate"] = 5e-4
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
@@ -408,9 +408,10 @@ def post_hoc_discriminator(ori_data, generated_data):
             y_pred_final = torch.squeeze(torch.concat((ori_logits, generated_logits), axis=0))
             y_label_final = torch.concat((torch.ones_like(ori_logits), torch.zeros_like(generated_logits)),
                                            axis=0)
+            acc_1=accuracy_score(y_label_final, y_pred_final )
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
-            print(acc,np.abs(0.5 - acc))
+            print(acc,np.abs(0.5 - acc),acc_1)
         print("discriminative_score by batch:",discriminative_score)
 
     return sum(discriminative_score)/len(discriminative_score)
