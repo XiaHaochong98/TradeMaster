@@ -331,7 +331,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
     args["train_rate"] = 0.8
-    args["learning_rate"] = 1e-4
+    args["learning_rate"] = 1e-3
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
@@ -404,7 +404,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             ori_logits = discriminator(ori_data, ori_time).cpu()
 
             y_pred_final = torch.squeeze(torch.concat((ori_logits, generated_logits), axis=0))
-            y_label_final = torch.concat((torch.ones_like([len(ori_logits), ]), torch.zeros_like([len(generated_logits), ])),
+            y_label_final = torch.concat((torch.ones_like(ori_logits), torch.zeros_like(generated_logits)),
                                            axis=0)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(torch.abs(0.5 - acc))
