@@ -325,7 +325,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args = {}
     args["device"] = "cuda"
     args["model_type"] = "gru"
-    args["epochs"] = 2000
+    args["epochs"] = 1000
     args["batch_size"] = 128
     args["num_layers"] = 6
     args["padding_value"] = -1.0
@@ -404,9 +404,12 @@ def post_hoc_discriminator(ori_data, generated_data):
             ori_data = ori_data.to(args["device"])
             # ori_time = ori_time.to(args["device"])
 
-            generated_logits,generated_label = discriminator(generated_data, generated_time).cpu()
-            ori_logits,ori_label = discriminator(ori_data, ori_time).cpu()
-
+            generated_logits,generated_label = discriminator(generated_data, generated_time)
+            generated_logits=generated_logits.cpu()
+            generated_label=generated_label.cpu()
+            ori_logits,ori_label = discriminator(ori_data, ori_time)
+            ori_logits=ori_logits.cpu()
+            ori_label=ori_label.cpu()
             y_pred_final = torch.squeeze(torch.concat((ori_label, generated_label), axis=0))
             y_label_final = torch.concat((torch.ones_like(ori_label), torch.zeros_like(generated_label)),
                                            axis=0)
