@@ -331,7 +331,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
     args["train_rate"] = 0.8
-    args["learning_rate"] = 1e-3
+    args["learning_rate"] = 3e-3
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
@@ -364,7 +364,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     #Train the post-host discriminator
     discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
-    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=0.998)
+    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=1)
     logger = trange(args["epochs"], desc=f"Epoch: 0,loss: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
