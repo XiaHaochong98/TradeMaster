@@ -329,6 +329,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["padding_value"] = -1.0
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
+    args["train_rate"] = 0.8
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
