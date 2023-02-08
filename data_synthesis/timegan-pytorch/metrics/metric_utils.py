@@ -394,7 +394,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             running_fake_loss += D_loss_fake.item()
             running_loss +=D_loss.item()
 
-        logger.set_description(f"Epoch: {epoch},loss: {running_loss:.4f}, real_loss: {running_real_loss:.4f}, fake_loss: {running_fake_loss:.4f}")
+        logger.set_description(f"Epoch: {epoch},loss: {running_loss/len(train_dataloader):.4f}, real_loss: {running_real_loss/len(train_dataloader):.4f}, fake_loss: {running_fake_loss/len(train_dataloader):.4f}")
     # Evaluate the discriminator on the test set
     with torch.no_grad():
         discriminative_score = []
