@@ -39,3 +39,20 @@ class OneStepPredictionDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.T[idx], self.Y[idx]
+
+class DiscriminatorDataset(torch.utils.data.Dataset):
+    r"""The dataset for predicting the feature of `idx` given the other features
+    Args:
+    - data (np.ndarray): the dataset to be trained on (B x S x F)
+    """
+    def __init__(self, ori_data,generated_data, ori_time,generated_time):
+        self.X = torch.FloatTensor(generated_data)
+        self.T = torch.LongTensor(ori_time)
+        self.Y = torch.FloatTensor(ori_data)
+        self.Y_T = torch.LongTensor(generated_time)
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.T[idx], self.Y[idx],self.Y_T[idx]

@@ -17,7 +17,7 @@ from sklearn.model_selection import train_test_split
 # Self-Written Modules
 from data.data_preprocess import data_preprocess
 from metrics.metric_utils import (
-    feature_prediction, one_step_ahead_prediction, reidentify_score
+    feature_prediction, one_step_ahead_prediction, reidentify_score,post_hoc_discriminator
 )
 
 from models.timegan import TimeGAN
@@ -192,6 +192,16 @@ def main(args):
 
     print(f"Total Runtime: {(time.time() - start)/60} mins\n")
 
+    # 3.post-hoc discriminator
+    start = time.time()
+    print("Running post-hoc discriminator...")
+    post_hoc_discriminator_score=post_hoc_discriminator(
+        (train_data,train_time),
+        (generated_data, generated_time)
+    )
+    print('Discriminator_score results:\n' +
+          f': {str(np.round(post_hoc_discriminator_score, 4))}\n' )
+    print(f"Total Runtime: {(time.time() - start) / 60} mins\n")
     return None
 
 def str2bool(v):
