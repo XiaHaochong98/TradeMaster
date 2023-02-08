@@ -357,7 +357,7 @@ def post_hoc_discriminator(ori_data, generated_data):
 
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=no,
+        batch_size=len(test_dataset),
         shuffle=False
     )
 
