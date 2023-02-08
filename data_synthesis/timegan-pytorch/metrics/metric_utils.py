@@ -335,10 +335,10 @@ def post_hoc_discriminator(ori_data, generated_data):
     generated_data,generated_time=generated_data
     random_seed=random.randint(1, 100000)
     ori_train_data, ori_test_data, ori_train_time, ori_test_time = train_test_split(
-        ori_data, ori_time, test_size=args.train_rate,random_state=random_seed
+        ori_data, ori_time, test_size=args['train_rate'],random_state=random_seed
     )
     generated_train_data, generated_test_data, generated_train_time, generated_test_time = train_test_split(
-        generated_data, generated_time, test_size=args.train_rate,random_state=random_seed
+        generated_data, generated_time, test_size=args['train_rate'],random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
     args["hidden_dim"] = int(dim / 2)
@@ -361,7 +361,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     #Train the post-host discriminator
     discriminator = DiscriminatorNetwork(args)
     discriminator.to(args["device"])
-    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.learning_rate)
+    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'])
     logger = trange(args["epochs"], desc=f"Epoch: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
