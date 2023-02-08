@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from metrics.general_rnn import GeneralRNN
 from metrics.dataset import FeaturePredictionDataset, OneStepPredictionDataset, DiscriminatorDataset
 import random
+from collections import namedtuple
 
 def rmse_error(y_true, y_pred):
     """User defined root mean squared error.
@@ -342,6 +343,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     )
     no, seq_len, dim = ori_data.shape
     args["hidden_dim"] = int(dim / 2)
+    args_tuple = namedtuple('GenericDict', args.keys())(**args)
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
     test_dataset=DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
                                          ori_time=ori_test_time, generated_time=generated_test_time)
@@ -359,7 +361,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     )
 
     #Train the post-host discriminator
-    discriminator = DiscriminatorNetwork(args)
+    discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
     optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'])
     logger = trange(args["epochs"], desc=f"Epoch: 0, real_loss: 0, fake_loss: 0")
