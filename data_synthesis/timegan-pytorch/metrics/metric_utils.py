@@ -364,7 +364,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     #Train the post-host discriminator
     discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
-    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=0.995)
+    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=0.998)
     logger = trange(args["epochs"], desc=f"Epoch: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
@@ -408,6 +408,7 @@ def post_hoc_discriminator(ori_data, generated_data):
                                            axis=0)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
+            print(acc,np.abs(0.5 - acc))
         print("discriminative_score by batch:",discriminative_score)
 
     return sum(discriminative_score)/len(discriminative_score)
