@@ -371,9 +371,9 @@ def post_hoc_discriminator(ori_data, generated_data):
         running_fake_loss = 0.0
         for generated_data, generated_time, ori_data, ori_time in train_dataloader:
             generated_data=generated_data.to(args["device"])
-            generated_time=generated_time.to(args["device"])
+            # generated_time=generated_time.to(args["device"])
             ori_data=ori_data.to(args["device"])
-            ori_time=ori_time.to(args["device"])
+            # ori_time=ori_time.to(args["device"])
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward
@@ -396,9 +396,9 @@ def post_hoc_discriminator(ori_data, generated_data):
         discriminative_score = []
         for generated_data, generated_time, ori_data, ori_time in test_dataloader:
             generated_data = generated_data.to(args["device"])
-            generated_time = generated_time.to(args["device"])
+            # generated_time = generated_time.to(args["device"])
             ori_data = ori_data.to(args["device"])
-            ori_time = ori_time.to(args["device"])
+            # ori_time = ori_time.to(args["device"])
 
             generated_logits = discriminator(generated_data, generated_time).cpu()
             ori_logits = discriminator(ori_data, ori_time).cpu()
