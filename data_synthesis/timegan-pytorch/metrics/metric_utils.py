@@ -317,7 +317,8 @@ class DiscriminatorNetwork(torch.nn.Module):
 
         # 128 x 100
         logits = self.dis_linear(H_o).squeeze(-1)
-        return logits
+        classification=torch.sigmoid(logits)
+        return logits,classification
 
 
 def post_hoc_discriminator(ori_data, generated_data):
@@ -379,8 +380,8 @@ def post_hoc_discriminator(ori_data, generated_data):
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward
-            generated_logits = discriminator(generated_data, generated_time)
-            ori_logits = discriminator(ori_data, ori_time)
+            generated_logits,generated_label = discriminator(generated_data, generated_time)
+            ori_logits,ori_label = discriminator(ori_data, ori_time)
             D_loss_real = torch.nn.functional.binary_cross_entropy_with_logits(ori_logits, torch.ones_like(ori_logits))
             D_loss_fake = torch.nn.functional.binary_cross_entropy_with_logits(generated_logits, torch.zeros_like(generated_logits))
             D_loss=D_loss_real+D_loss_fake
@@ -403,13 +404,13 @@ def post_hoc_discriminator(ori_data, generated_data):
             ori_data = ori_data.to(args["device"])
             # ori_time = ori_time.to(args["device"])
 
-            generated_logits = discriminator(generated_data, generated_time).cpu()
-            ori_logits = discriminator(ori_data, ori_time).cpu()
+            generated_logits,generated_label = discriminator(generated_data, generated_time).cpu()
+            ori_logits,ori_label = discriminator(ori_data, ori_time).cpu()
 
-            y_pred_final = torch.squeeze(torch.concat((ori_logits, generated_logits), axis=0))
-            y_label_final = torch.concat((torch.ones_like(ori_logits), torch.zeros_like(generated_logits)),
+            y_pred_final = torch.squeeze(torch.concat((ori_label, generated_label), axis=0))
+            y_label_final = torch.concat((torch.ones_like(ori_label), torch.zeros_like(generated_label)),
                                            axis=0)
-            acc_1=accuracy_score(y_label_final, y_pred_final )
+            acc_1=accuracy_score(y_label_final, y_pred_final)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
             print(acc,np.abs(0.5 - acc),acc_1)
