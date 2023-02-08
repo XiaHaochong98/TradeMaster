@@ -326,7 +326,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["model_type"] = "gru"
     args["epochs"] = 2000
     args["batch_size"] = 128
-    args["num_layers"] = 3
+    args["num_layers"] = 6
     args["padding_value"] = -1.0
     args["max_seq_len"] = 100
     args["padding_value"]=-1.0
