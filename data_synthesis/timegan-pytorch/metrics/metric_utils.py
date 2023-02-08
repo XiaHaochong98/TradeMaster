@@ -343,7 +343,7 @@ def post_hoc_discriminator(ori_data, generated_data):
         generated_data, generated_time, test_size=args['train_rate'],random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
-    args["hidden_dim"] = int(dim / 2)
+    args["hidden_dim"] = dim
     args_tuple = namedtuple('GenericDict', args.keys())(**args)
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
     test_dataset=DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
