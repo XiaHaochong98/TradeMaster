@@ -388,7 +388,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             D_loss.backward()
             # optimize
             optimizer.step()
-
+            print(generated_data.shape,ori_data.shape)
             running_real_loss += D_loss_real.item()
             running_fake_loss += D_loss_fake.item()
             running_loss +=D_loss.item()
