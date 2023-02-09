@@ -113,7 +113,7 @@ def main(args):
     # Log end time
     end = time.time()
 
-    print(f"Generated data preview:\n{generated_data[:2, -10:, :2]}\n")
+    print(f"Generated data preview:\n{generated_data.shape, generated_data[:2, -10:, :2]}\n")
     print(f"Model Runtime: {(end - start)/60} mins\n")
 
     #########################
