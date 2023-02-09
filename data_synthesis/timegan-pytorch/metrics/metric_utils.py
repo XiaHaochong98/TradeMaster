@@ -75,6 +75,7 @@ def feature_prediction(train_data, test_data, index):
     args["max_seq_len"] = 24
     args["learning_rate"] = 1e-3
     args["grad_clip_norm"] = 5.0
+    args['weight_decay']=0.998
 
     # Output initialization
     perf = list()
@@ -111,7 +112,8 @@ def feature_prediction(train_data, test_data, index):
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.Adam(
             model.parameters(),
-            lr=args["learning_rate"]
+            lr=args["learning_rate"],
+            weight_decay=args['weight_decay']
         )
 
         logger = trange(args["epochs"], desc=f"Epoch: 0, Loss: 0")
@@ -185,6 +187,7 @@ def one_step_ahead_prediction(train_data, test_data):
     args["max_seq_len"] = 24 - 1   # only 99 is used for prediction
     args["learning_rate"] = 1e-3
     args["grad_clip_norm"] = 5.0
+    args['weight_decay']=0.998
 
     # Set training features and labels
     train_dataset = OneStepPredictionDataset(train_data, train_time)
@@ -207,7 +210,9 @@ def one_step_ahead_prediction(train_data, test_data):
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(
         model.parameters(), 
-        lr=args["learning_rate"]
+        lr=args["learning_rate"],
+        weight_decay=args['weight_decay']
+
     )
 
     # Train the predictive model
@@ -333,6 +338,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["max_seq_len"] = 24
     args["train_rate"] = 0.8
     args["learning_rate"] = 1e-3
+    args['weight_decay']=0.998
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
@@ -367,7 +373,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     #Train the post-host discriminator
     discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
-    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=1)
+    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=args['weight_decay'])
     logger = trange(args["epochs"], desc=f"Epoch: 0,loss: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
