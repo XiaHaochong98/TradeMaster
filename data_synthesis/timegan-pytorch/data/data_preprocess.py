@@ -120,7 +120,7 @@ def data_preprocess(
     time = []
 
     # For each uniq id
-    for i in tqdm(range(no)-max_seq_len+1):
+    for i in tqdm(range(no-max_seq_len+1)):
         # Extract the time-series data with a certain admissionid
 
         curr_data = ori_data[ori_data[index] == uniq_id[i]].to_numpy()
