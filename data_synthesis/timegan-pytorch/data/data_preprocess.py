@@ -38,7 +38,7 @@ def data_preprocess(
 ) -> Tuple[np.ndarray, np.ndarray, List]:
     """Load the data and preprocess into 3d numpy array.
     Preprocessing includes:
-    1. Remove outliers
+    1. Remove outliers(removed now)
     2. Extract sequence length for each patient id
     3. Impute missing data 
     4. Normalize data
@@ -74,11 +74,11 @@ def data_preprocess(
     # Remove outliers from dataset
     #########################
     
-    no = ori_data.shape[0]
-    z_scores = stats.zscore(ori_data, axis=0, nan_policy='omit')
-    z_filter = np.nanmax(np.abs(z_scores), axis=1) < 3
-    ori_data = ori_data[z_filter]
-    print(f"Dropped {no - ori_data.shape[0]} rows (outliers)\n")
+    # no = ori_data.shape[0]
+    # z_scores = stats.zscore(ori_data, axis=0, nan_policy='omit')
+    # z_filter = np.nanmax(np.abs(z_scores), axis=1) < 3
+    # ori_data = ori_data[z_filter]
+    # print(f"Dropped {no - ori_data.shape[0]} rows (outliers)\n")
 
     # Parameters
     uniq_id = np.unique(ori_data[index])
