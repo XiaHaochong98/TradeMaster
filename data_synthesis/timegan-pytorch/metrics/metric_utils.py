@@ -332,7 +332,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["max_seq_len"] = 24
     args["padding_value"]=-1.0
     args["train_rate"] = 0.8
-    args["learning_rate"] = 1e-3
+    args["learning_rate"] = 2e-3
 
     ori_data,ori_time=ori_data
     generated_data,generated_time=generated_data
@@ -366,7 +366,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     #Train the post-host discriminator
     discriminator = DiscriminatorNetwork(args_tuple)
     discriminator.to(args["device"])
-    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=1)
+    optimizer = torch.optim.Adam(discriminator.parameters(), lr=args['learning_rate'],weight_decay=0.998)
     logger = trange(args["epochs"], desc=f"Epoch: 0,loss: 0, real_loss: 0, fake_loss: 0")
     for epoch in logger:
         running_real_loss = 0.0
@@ -413,7 +413,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             y_pred_final = torch.squeeze(torch.concat((ori_label, generated_label), axis=0))
             y_label_final = torch.concat((torch.ones_like(ori_label), torch.zeros_like(generated_label)),
                                            axis=0)
-            print(y_pred_final.shape,y_label_final.shape,generated_logits.shape,ori_logits.shape)
+            print(y_pred_final.shape,y_label_final.shape,generated_logits.shape,ori_logits.shape,(y_pred_final > 0.5).shape)
             # acc_1=accuracy_score(y_label_final, y_pred_final)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
