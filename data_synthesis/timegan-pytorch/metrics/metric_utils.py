@@ -67,7 +67,7 @@ def feature_prediction(train_data, test_data, index):
     args["epochs"] = 250
     args["batch_size"] = 128
     args["in_dim"] = dim-1
-    args["h_dim"] = int(dim-1)/2
+    args["h_dim"] = int(int(dim-1)/2)
     args["out_dim"] = 1
     args["n_layers"] = 3
     args["dropout"] = 0.5
@@ -179,7 +179,7 @@ def one_step_ahead_prediction(train_data, test_data):
     args["epochs"] = 250
     args["batch_size"] = 128
     args["in_dim"] = dim
-    args["h_dim"] = int(dim)/2
+    args["h_dim"] = int(int(dim)/2)
     args["out_dim"] = dim
     args["n_layers"] = 3
     args["dropout"] = 0.5
