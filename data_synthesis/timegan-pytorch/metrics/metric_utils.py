@@ -338,10 +338,10 @@ def post_hoc_discriminator(ori_data, generated_data):
     random_seed=random.randint(1, 100000)
     print('random_seed',random_seed)
     ori_train_data, ori_test_data, ori_train_time, ori_test_time = train_test_split(
-        ori_data, ori_time, test_size=args['train_rate'],random_state=random_seed
+        ori_data, ori_time, test_size=1-args['train_rate'],random_state=random_seed
     )
     generated_train_data, generated_test_data, generated_train_time, generated_test_time = train_test_split(
-        generated_data, generated_time, test_size=args['train_rate'],random_state=random_seed
+        generated_data, generated_time, test_size=1-args['train_rate'],random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
     args["hidden_dim"] = dim
@@ -388,7 +388,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             D_loss.backward()
             # optimize
             optimizer.step()
-            print(generated_data.shape,ori_data.shape)
+            # print(generated_data.shape,ori_data.shape)
             running_real_loss += D_loss_real.item()
             running_fake_loss += D_loss_fake.item()
             running_loss +=D_loss.item()
