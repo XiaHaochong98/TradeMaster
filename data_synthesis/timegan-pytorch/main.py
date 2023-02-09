@@ -35,7 +35,7 @@ def main(args):
         raise ValueError(f"Code directory not found at {code_dir}.")
 
     ## Data directory
-    data_path = os.path.abspath("../data/synthesis/")
+    data_path = os.path.abspath("../../data/synthesis/")
     if not os.path.exists(data_path):
         raise ValueError(f"Data file not found at {data_path}.")
     data_dir = os.path.dirname(data_path)
