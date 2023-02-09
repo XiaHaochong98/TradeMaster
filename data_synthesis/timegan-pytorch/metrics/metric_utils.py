@@ -253,6 +253,7 @@ class DiscriminatorNetwork(torch.nn.Module):
 
     def __init__(self, args):
         super(DiscriminatorNetwork, self).__init__()
+        self.input_size= args.input_size
         self.hidden_dim = args.hidden_dim
         self.num_layers = args.num_layers
         self.padding_value = args.padding_value
@@ -260,7 +261,7 @@ class DiscriminatorNetwork(torch.nn.Module):
 
         # Discriminator Architecture
         self.dis_rnn = torch.nn.GRU(
-            input_size=self.hidden_dim,
+            input_size=self.input_size,
             hidden_size=self.hidden_dim,
             num_layers=self.num_layers,
             batch_first=True
@@ -327,7 +328,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args["model_type"] = "gru"
     args["epochs"] = 250
     args["batch_size"] = 128
-    args["num_layers"] = 3
+    args["num_layers"] = 6
     args["padding_value"] = -1.0
     args["max_seq_len"] = 24
     args["train_rate"] = 0.8
@@ -344,6 +345,7 @@ def post_hoc_discriminator(ori_data, generated_data):
         generated_data, generated_time, test_size=1-args['train_rate'],random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
+    args["input_size"] = dim
     args["hidden_dim"] = int(int(dim)/2)
     args_tuple = namedtuple('GenericDict', args.keys())(**args)
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
@@ -423,78 +425,6 @@ def post_hoc_discriminator(ori_data, generated_data):
 
     return sum(discriminative_score)/len(discriminative_score)
 
-class PredictorNetwork(torch.nn.Module):
-    """The Discriminator network (decoder) for TimeGAN
-    """
-
-    def __init__(self, args):
-        super(PredictorNetwork, self).__init__()
-        self.hidden_dim = args.hidden_dim
-        self.num_layers = args.num_layers
-        self.padding_value = args.padding_value
-        self.max_seq_len = args.max_seq_len
-
-        # Discriminator Architecture
-        self.pred_rnn = torch.nn.GRU(
-            input_size=self.hidden_dim,
-            hidden_size=self.hidden_dim,
-            num_layers=self.num_layers,
-            batch_first=True
-        )
-        self.pred_linear = torch.nn.Linear(self.hidden_dim, 1)
-
-        # Init weights
-        # Default weights of TensorFlow is Xavier Uniform for W and 1 or 0 for b
-        # Reference:
-        # - https://www.tensorflow.org/api_docs/python/tf/compat/v1/get_variable
-        # - https://github.com/tensorflow/tensorflow/blob/v2.3.1/tensorflow/python/keras/layers/legacy_rnn/rnn_cell_impl.py#L484-L614
-        with torch.no_grad():
-            for name, param in self.pred_rnn.named_parameters():
-                if 'weight_ih' in name:
-                    torch.nn.init.xavier_uniform_(param.data)
-                elif 'weight_hh' in name:
-                    torch.nn.init.xavier_uniform_(param.data)
-                elif 'bias_ih' in name:
-                    param.data.fill_(1)
-                elif 'bias_hh' in name:
-                    param.data.fill_(0)
-            for name, param in self.pred_linear.named_parameters():
-                if 'weight' in name:
-                    torch.nn.init.xavier_uniform_(param)
-                elif 'bias' in name:
-                    param.data.fill_(0)
-
-    def forward(self, H, T):
-        """Forward pass for predicting if the data is real or synthetic
-        Args:
-            - H: latent representation (B x S x E)
-            - T: input temporal information
-        Returns:
-            - logits: predicted logits (B x S x 1)
-        """
-        # Dynamic RNN input for ignoring paddings
-        H_packed = torch.nn.utils.rnn.pack_padded_sequence(
-            input=H,
-            lengths=T,
-            batch_first=True,
-            enforce_sorted=False
-        )
-
-        # 128 x 100 x 10
-        H_o, H_t = self.dis_rnn(H_packed)
-
-        # Pad RNN output back to sequence length
-        H_o, T = torch.nn.utils.rnn.pad_packed_sequence(
-            sequence=H_o,
-            batch_first=True,
-            padding_value=self.padding_value,
-            total_length=self.max_seq_len
-        )
-
-        # 128 x 100
-        logits = self.dis_linear(H_o).squeeze(-1)
-        classification=torch.sigmoid(logits)
-        return logits,classification
 
 
 
