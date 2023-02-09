@@ -413,7 +413,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             y_pred_final = torch.squeeze(torch.concat((ori_label, generated_label), axis=0))
             y_label_final = torch.concat((torch.ones_like(ori_label), torch.zeros_like(generated_label)),
                                            axis=0)
-            print(y_pred_final.shape,y_label_final.shape)
+            print(y_pred_final.shape,y_label_final.shape,generated_logits.shape,ori_logits.shape)
             acc_1=accuracy_score(y_label_final, y_pred_final)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
