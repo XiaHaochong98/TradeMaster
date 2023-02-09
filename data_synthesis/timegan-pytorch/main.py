@@ -106,6 +106,7 @@ def main(args):
     T, args.max_seq_len = extract_time(X)
     X = np.asarray(X)
     T = np.asarray(T)
+    args.padding_value=-1
     # data_path = "data/stock.csv"
     # X, T, _, args.max_seq_len, args.padding_value = data_preprocess(
     #     data_path, args.max_seq_len
