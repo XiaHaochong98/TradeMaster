@@ -417,7 +417,7 @@ def post_hoc_discriminator(ori_data, generated_data):
             # acc_1=accuracy_score(y_label_final, y_pred_final)
             acc = accuracy_score(y_label_final, (y_pred_final > 0.5))
             discriminative_score.append(np.abs(0.5 - acc))
-            print('acc,score,acc_ori: ',acc,np.abs(0.5 - acc),acc_1)
+            print('acc,score,acc_ori: ',acc,np.abs(0.5 - acc))
         print("discriminative_score by batch:",discriminative_score)
 
     return sum(discriminative_score)/len(discriminative_score)
