@@ -115,7 +115,7 @@ def data_preprocess(
     #     print(f"Changed padding value to: {padding_value}\n")
     
     # Output initialization
-    output = np.empty([no, max_seq_len, dim])  # Shape:[no, max_seq_len, dim]
+    output = np.empty([no-max_seq_len+1, max_seq_len, dim])  # Shape:[no-max_seq_len+1, max_seq_len, dim]
     output.fill(padding_value)
     time = []
 
