@@ -60,6 +60,8 @@ def main(args):
     ##############################################
     # Initialize random seed and CUDA
     ##############################################
+    if args.seed==-1:
+        args.seed=random.randint(1,100000)
 
     os.environ['PYTHONHASHSEED'] = str(args.seed)
     random.seed(args.seed)
@@ -246,7 +248,7 @@ if __name__ == "__main__":
         default=True)
     parser.add_argument(
         '--seed',
-        default=0,
+        default=-1,
         type=int)
     parser.add_argument(
         '--feat_pred_no',

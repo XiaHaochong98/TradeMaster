@@ -64,7 +64,7 @@ def feature_prediction(train_data, test_data, index):
     args["task"] = "regression"
     args["model_type"] = "gru"
     args["bidirectional"] = False
-    args["epochs"] = 20
+    args["epochs"] = 250
     args["batch_size"] = 128
     args["in_dim"] = dim-1
     args["h_dim"] = dim-1
@@ -174,7 +174,7 @@ def one_step_ahead_prediction(train_data, test_data):
     args["task"] = "regression"
     args["model_type"] = "gru"
     args["bidirectional"] = False
-    args["epochs"] = 20
+    args["epochs"] = 250
     args["batch_size"] = 128
     args["in_dim"] = dim
     args["h_dim"] = dim
@@ -435,7 +435,7 @@ def predictive_score(ori_data, generated_data):
     args["task"] = "regression"
     args["model_type"] = "gru"
     args["bidirectional"] = False
-    args["epochs"] = 20
+    args["epochs"] = 200
     args["batch_size"] = 128
     args["n_layers"] = 3
     args["dropout"] = 0.5
