@@ -83,6 +83,7 @@ def data_preprocess(
     # Parameters
     uniq_id = np.unique(ori_data[index])
     no = len(uniq_id)
+    print('no:',no)
     dim = len(ori_data.columns) - 1
 
     #########################

@@ -35,7 +35,7 @@ def main(args):
         raise ValueError(f"Code directory not found at {code_dir}.")
 
     ## Data directory
-    data_path = os.path.abspath("./data")
+    data_path = os.path.abspath("../data/synthesis/")
     if not os.path.exists(data_path):
         raise ValueError(f"Data file not found at {data_path}.")
     data_dir = os.path.dirname(data_path)
@@ -82,11 +82,34 @@ def main(args):
     #########################
     # Load and preprocess data for model
     #########################
+    print('using data from pickle')
+    with open(args.data_path, 'rb') as handle:
+        X = pickle.load(handle)
+    def extract_time(data):
+        """Returns Maximum sequence length and each sequence length.
 
-    data_path = "data/stock.csv"
-    X, T, _, args.max_seq_len, args.padding_value = data_preprocess(
-        data_path, args.max_seq_len
-    )
+        Args:
+          - data: original data
+
+        Returns:
+          - time: extracted time information
+          - max_seq_len: maximum sequence length
+        """
+        time = list()
+        max_seq_len = 0
+        for i in range(len(data)):
+            max_seq_len = max(max_seq_len, len(data[i][:, 0]))
+            time.append(len(data[i][:, 0]))
+
+        return time, max_seq_len
+
+    T, args.max_seq_len = extract_time(X)
+    X = np.asarray(X)
+    T = np.asarray(T)
+    # data_path = "data/stock.csv"
+    # X, T, _, args.max_seq_len, args.padding_value = data_preprocess(
+    #     data_path, args.max_seq_len
+    # )
 
     print(f"Processed data: {X.shape} (Idx x MaxSeqLen x Features)\n")
     print(f"Original data preview:\n{X[:2, :10, :2]}\n")
@@ -303,6 +326,10 @@ if __name__ == "__main__":
         '--learning_rate',
         default=1e-3,
         type=float)
+    parser.add_argument(
+        '--data_path',
+        default='',
+        type=str)
 
     args = parser.parse_args()
 
