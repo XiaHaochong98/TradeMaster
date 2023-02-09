@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 # Self-Written Modules
 from data.data_preprocess import data_preprocess
 from metrics.metric_utils import (
-    feature_prediction, one_step_ahead_prediction, reidentify_score,post_hoc_discriminator
+    feature_prediction, one_step_ahead_prediction, reidentify_score,post_hoc_discriminator,predictive_score
 )
 
 from models.timegan import TimeGAN
@@ -203,6 +203,16 @@ def main(args):
           f'(2) New: {str(np.round(new_step_ahead_pred_perf, 4))}\n')
 
     print(f"Total Runtime: {(time.time() - start)/60} mins\n")
+
+    # 3. One step ahead prediction score
+    print("Running one step ahead prediction using original data...")
+    pred_score = predictive_score(
+        (train_data, train_time),
+        (generated_data, generated_time)
+    )
+
+    print('predictive_score result:' +
+          f'{str(np.round(pred_score, 4))}\n')
 
     return None
 

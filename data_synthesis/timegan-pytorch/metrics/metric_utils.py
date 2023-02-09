@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
 from metrics.general_rnn import GeneralRNN
-from metrics.dataset import FeaturePredictionDataset, OneStepPredictionDataset, DiscriminatorDataset
+from metrics.dataset import FeaturePredictionDataset, OneStepPredictionDataset, DiscriminatorDataset, PredictorDataset
 import random
 from collections import namedtuple
 
@@ -325,7 +325,7 @@ def post_hoc_discriminator(ori_data, generated_data):
     args = {}
     args["device"] = "cuda"
     args["model_type"] = "gru"
-    args["epochs"] = 500
+    args["epochs"] = 250
     args["batch_size"] = 128
     args["num_layers"] = 6
     args["padding_value"] = -1.0
@@ -344,7 +344,7 @@ def post_hoc_discriminator(ori_data, generated_data):
         generated_data, generated_time, test_size=1-args['train_rate'],random_state=random_seed
     )
     no, seq_len, dim = ori_data.shape
-    args["hidden_dim"] = dim
+    args["hidden_dim"] = int(int(dim)/2)
     args_tuple = namedtuple('GenericDict', args.keys())(**args)
     train_dataset=DiscriminatorDataset(ori_data=ori_train_data,generated_data=generated_train_data, ori_time=ori_train_time,generated_time=generated_train_time)
     test_dataset=DiscriminatorDataset(ori_data=ori_test_data, generated_data=generated_test_data,
@@ -422,3 +422,168 @@ def post_hoc_discriminator(ori_data, generated_data):
         print("discriminative_score by batch:",discriminative_score)
 
     return sum(discriminative_score)/len(discriminative_score)
+
+class PredictorNetwork(torch.nn.Module):
+    """The Discriminator network (decoder) for TimeGAN
+    """
+
+    def __init__(self, args):
+        super(PredictorNetwork, self).__init__()
+        self.hidden_dim = args.hidden_dim
+        self.num_layers = args.num_layers
+        self.padding_value = args.padding_value
+        self.max_seq_len = args.max_seq_len
+
+        # Discriminator Architecture
+        self.pred_rnn = torch.nn.GRU(
+            input_size=self.hidden_dim,
+            hidden_size=self.hidden_dim,
+            num_layers=self.num_layers,
+            batch_first=True
+        )
+        self.pred_linear = torch.nn.Linear(self.hidden_dim, 1)
+
+        # Init weights
+        # Default weights of TensorFlow is Xavier Uniform for W and 1 or 0 for b
+        # Reference:
+        # - https://www.tensorflow.org/api_docs/python/tf/compat/v1/get_variable
+        # - https://github.com/tensorflow/tensorflow/blob/v2.3.1/tensorflow/python/keras/layers/legacy_rnn/rnn_cell_impl.py#L484-L614
+        with torch.no_grad():
+            for name, param in self.pred_rnn.named_parameters():
+                if 'weight_ih' in name:
+                    torch.nn.init.xavier_uniform_(param.data)
+                elif 'weight_hh' in name:
+                    torch.nn.init.xavier_uniform_(param.data)
+                elif 'bias_ih' in name:
+                    param.data.fill_(1)
+                elif 'bias_hh' in name:
+                    param.data.fill_(0)
+            for name, param in self.pred_linear.named_parameters():
+                if 'weight' in name:
+                    torch.nn.init.xavier_uniform_(param)
+                elif 'bias' in name:
+                    param.data.fill_(0)
+
+    def forward(self, H, T):
+        """Forward pass for predicting if the data is real or synthetic
+        Args:
+            - H: latent representation (B x S x E)
+            - T: input temporal information
+        Returns:
+            - logits: predicted logits (B x S x 1)
+        """
+        # Dynamic RNN input for ignoring paddings
+        H_packed = torch.nn.utils.rnn.pack_padded_sequence(
+            input=H,
+            lengths=T,
+            batch_first=True,
+            enforce_sorted=False
+        )
+
+        # 128 x 100 x 10
+        H_o, H_t = self.dis_rnn(H_packed)
+
+        # Pad RNN output back to sequence length
+        H_o, T = torch.nn.utils.rnn.pad_packed_sequence(
+            sequence=H_o,
+            batch_first=True,
+            padding_value=self.padding_value,
+            total_length=self.max_seq_len
+        )
+
+        # 128 x 100
+        logits = self.dis_linear(H_o).squeeze(-1)
+        classification=torch.sigmoid(logits)
+        return logits,classification
+
+
+
+
+def predictive_score(ori_data, generated_data):
+    args = {}
+    args["device"] = "cuda"
+    args["task"] = "regression"
+    args["model_type"] = "gru"
+    args["bidirectional"] = False
+    args["epochs"] = 20
+    args["batch_size"] = 128
+    args["n_layers"] = 3
+    args["dropout"] = 0.5
+    args["padding_value"] = -1.0
+    args["max_seq_len"] = 24 - 1  # only 99 is used for prediction
+    args["learning_rate"] = 1e-3
+    args["grad_clip_norm"] = 5.0
+
+    ori_data,ori_time=ori_data
+    generated_data,generated_time=generated_data
+    random_seed=random.randint(1, 100000)
+    print('random_seed',random_seed)
+    no, seq_len, dim = ori_data.shape
+    args["in_dim"] = dim
+    args["h_dim"] = dim
+    args["out_dim"] = dim
+
+
+    args_tuple = namedtuple('GenericDict', args.keys())(**args)
+
+
+
+    # Set training features and labels
+    train_dataset = OneStepPredictionDataset(ori_data, ori_time)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args["batch_size"],
+        shuffle=True
+    )
+
+    # Set testing features and labels
+    test_dataset = OneStepPredictionDataset(generated_data, generated_time)
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=no,
+        shuffle=True
+    )
+    # Initialize model
+    model = GeneralRNN(args)
+    model.to(args["device"])
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=args["learning_rate"]
+    )
+
+    # Train the predictive model
+    logger = trange(args["epochs"], desc=f"Epoch: 0, Loss: 0")
+    for epoch in logger:
+        running_loss = 0.0
+
+        for train_x, train_t, train_y in train_dataloader:
+            train_x = train_x.to(args["device"])
+            train_y = train_y.to(args["device"])
+            # zero the parameter gradients
+            optimizer.zero_grad()
+            # forward
+            train_p = model(train_x, train_t)
+            loss = criterion(train_p, train_y)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+
+            running_loss += loss.item()
+
+        logger.set_description(f"Epoch: {epoch}, Loss: {running_loss:.4f}")
+
+    # Evaluate the trained model
+    with torch.no_grad():
+        perf = 0
+        for test_x, test_t, test_y in test_dataloader:
+            test_x = test_x.to(args["device"])
+            test_p = model(test_x, test_t).cpu()
+
+            test_p = np.reshape(test_p.numpy(), [-1])
+            test_y = np.reshape(test_y.numpy(), [-1])
+
+            perf += rmse_error(test_y, test_p)
+
+    return perf
