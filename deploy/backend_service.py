@@ -231,12 +231,25 @@ class Server():
             },
 
         }
+        self.MarketGANparameters={
+            'dynamic':['bear'],
+            'stock_tick':['AAPL'],
+            'start_date':['2023-01-01'],
+            'sample_number':['64'],
+        }
+    # load MarketGAN MarketGAN
+
 
     def parameters(self):
         # copy self.parameters
         parameters = copy.deepcopy(self.parameters)
         #TODO
         # update dynamic parameters
+        return parameters
+
+    def MarketGAN_parameters(self):
+        # copy self.parameters
+        parameters = copy.deepcopy(self.MarketGANparameters)
         return parameters
 
     def evaluation_parameters(self,request):
@@ -1390,6 +1403,138 @@ class Server():
             logger.info(info)
             return jsonify(res)
 
+    def MarketGAN_generation(self, request):
+        request_json = json.loads(request.get_data(as_text=True))
+        # print('request_json',request_json)
+        try:
+            # get session_id from request_json
+            new_session=False
+            session_id = request_json.get("session_id")
+            # creat a new session_id if session_id is None
+            if session_id is None or session_id == '':
+                session_id = str(uuid.uuid1())
+                new_session=True
+
+
+            # run inference of MarketGAN and save the generated data to the work_dir
+            # TODO
+
+            # save session information if it is a new session
+            if new_session:
+                self.sessions = self.dump_sessions({session_id: {
+                    "dataset": dataset_name,
+                    "task_name": task_name,
+                    "work_dir": work_dir,
+                    "cfg_path": cfg_path,
+                    "script_path": train_script_path,
+                    "train_log_path": log_path,
+                    "test_log_path": os.path.join(os.path.dirname(log_path), "test_log.txt")
+                }})
+            # return the figure
+            error_code = 0
+            info = "request success, read uploaded csv file"
+            res = {
+                "error_code": error_code,
+                "info": info,
+                "fig": csv_data,
+                'session_id': session_id
+            }
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            info = str(exc_type) + str(fname) + str(exc_tb.tb_lineno)
+            print(info)
+            return None
+
+    def MarketGAN_Download(self, request):
+        request_json = json.loads(request.get_data(as_text=True))
+        # print('request_json',request_json)
+        try:
+            # get session_id from request_json
+            session_id = request_json.get("session_id")
+            self.sessions = self.load_sessions()
+            if session_id in self.sessions:
+                work_dir = self.sessions[session_id]["work_dir"]
+                if "custom_datafile_paths" in self.sessions[session_id]:
+                    custom_datafile_paths = self.sessions[session_id]["custom_datafile_paths"]
+                    custom_datafile_names = [os.path.basename(path).split('.')[0] for path in custom_datafile_paths]
+                else:
+                    custom_datafile_paths = []
+                    custom_datafile_names = []
+                MDM_datafile_path = self.sessions[session_id]["MDM_datafile_path"][-1]
+                # MDM_dataset_name = self.sessions[session_id]["MDM_dataset_name"]
+                MDM_dataset_name = str(os.path.basename(MDM_datafile_path).split('.')[0])
+            else:
+                error_code = 1
+                info = "Please start your session first from running a modeling"
+                res = {
+                    "error_code": error_code,
+                    "info": info,
+                    "file": None
+                }
+                logger.info(info)
+                return jsonify(res)
+
+            # forbid download csv file if it is not a custom data
+            # if MDM_dataset_name not in custom_datafile_names:
+            #     error_code = 1
+            #     info = "request error, you can only download custom data"
+            #     res = {
+            #         "error_code": error_code,
+            #         "info": info,
+            #         "file": None
+            #     }
+            #     logger.info(info)
+            #     return jsonify(res)
+
+            # get the saved csv file path that is set in save_market_dynamics_labeling()
+            # print('saved_dataset_path',self.sessions[session_id]["MDM_datafile_path"])
+            saved_dataset_path = self.sessions[session_id]["MDM_datafile_path"][-1]
+
+            # Read the CSV file contents
+            with open(saved_dataset_path, 'r', encoding='utf-8') as file:
+                csv_data = file.read()
+
+            # Create a response with appropriate headers for downloading a CSV file
+
+            # TODO: modify the file response name
+            # response = Response(
+            #     csv_data,
+            #     content_type='text/csv',
+            #     headers={
+            #         "Content-Disposition": f"attachment; filename={MDM_dataset_name}",
+            #         "Content-Type": "text/csv; charset=utf-8"
+            #     }
+            # )
+
+            error_code = 0
+            info = "request success, read uploaded csv file"
+            res = {
+                "error_code": error_code,
+                "info": info,
+                "data": csv_data,
+                'filename': MDM_dataset_name,
+                'session_id': session_id
+            }
+            logger.info(info)
+            return jsonify(res)
+
+        except Exception as e:
+
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            error_code = 1
+            info = "request data error, {}".format(e)
+            res = {
+                "error_code": error_code,
+                "info": info + str(exc_type) + str(fname) + str(exc_tb.tb_lineno),
+                "session_id": session_id,
+                "file": None
+            }
+            logger.info(info)
+            return jsonify(res)
+
+
 
 class HealthCheck():
     def __init__(self):
@@ -1433,6 +1578,11 @@ def getParameters():
 @app.route("/api/TradeMaster/evaluation_getParameters", methods=["POST"])
 def evaluation_getParameters():
     res = SERVER.evaluation_parameters(request)
+    return res
+
+@app.route("/api/TradeMaster/MarketGAN_getParameters", methods=["GET"])
+def MarketGAN_getParameters():
+    res = SERVER.MarketGAN_parameters(request)
     return res
 
 
@@ -1486,6 +1636,17 @@ def save_market_dynamics_labeling():
 @app.route("/api/TradeMaster/run_dynamics_test", methods=["POST"])
 def run_style_test():
     res = SERVER.run_dynamics_test(request)
+    return res
+
+
+@app.route("/api/TradeMaster/MarketGAN_Generation", methods=["POST"])
+def MarketGAN_Generation():
+    res = SERVER.MarketGAN_generation(request)
+    return res
+
+@app.route("/api/TradeMaster/MarketGAN_Download", methods=["POST"])
+def MarketGAN_Download():
+    res = SERVER.MarketGAN_Download(request)
     return res
 
 
