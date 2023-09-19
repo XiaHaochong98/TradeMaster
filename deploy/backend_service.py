@@ -16,8 +16,11 @@ from mmcv import Config
 
 ROOT = str(pathlib.Path(__file__).resolve().parents[1])
 sys.path.append(ROOT)
+# append the MarketGAN_Service path
+sys.path.append(os.path.join(ROOT, "MarketGAN_Service"))
 
 from trademaster.utils import replace_cfg_vals, MRL_F2B_args_converter
+from MarketGAN_service import *
 from flask_cors import CORS
 import os.path as osp
 import pickle
@@ -232,12 +235,12 @@ class Server():
 
         }
         self.MarketGANparameters={
-            'dynamic':['bear'],
-            'stock_tick':['AAPL'],
+            'stock_tick_options':['AAPL', 'AMGN', 'AXP', 'BA', 'CAT', 'CRM', 'CSCO', 'CVX', 'DIS', 'GS', 'HD', 'HON', 'IBM', 'INTC', 'JNJ', 'JPM', 'KO', 'MCD', 'MMM', 'MRK', 'MSFT', 'NKE', 'PG', 'TRV', 'UNH', 'V', 'VZ', 'WBA', 'WMT'],
             'start_date':['2023-01-01'],
             'sample_number':['64'],
         }
-    # load MarketGAN MarketGAN
+    # load MarketGAN_Service MarketGAN_Service
+        self.MarketGAN = MarketGAN_service()
 
 
     def parameters(self):
@@ -247,10 +250,18 @@ class Server():
         # update dynamic parameters
         return parameters
 
-    def MarketGAN_parameters(self):
+    def get_parameters(self, request):
+        logger.info("get parameters start.")
+        param = self.parameters
+        logger.info("get parameters end.")
+        return jsonify(param)
+
+    def MarketGAN_parameters(self,request):
         # copy self.parameters
-        parameters = copy.deepcopy(self.MarketGANparameters)
-        return parameters
+        logger.info("get parameters start.")
+        param = self.MarketGANparameters
+        logger.info("get parameters end.")
+        return jsonify(param)
 
     def evaluation_parameters(self,request):
         # print('evaluation_parameters',request)
@@ -349,11 +360,7 @@ class Server():
             json.dump(sessions, op)
         return sessions
 
-    def get_parameters(self, request):
-        logger.info("get parameters start.")
-        param = self.parameters
-        logger.info("get parameters end.")
-        return jsonify(param)
+
 
     def train(self, request):
         request_json = json.loads(request.get_data(as_text=True))
@@ -1414,59 +1421,93 @@ class Server():
             if session_id is None or session_id == '':
                 session_id = str(uuid.uuid1())
                 new_session=True
+                work_dir = os.path.join(ROOT, "work_dir", session_id,
+                                        f"MarketGAN_simulator")
+            else:
+                self.sessions = self.load_sessions()
+                if session_id in self.sessions:
+                    work_dir = self.sessions[session_id]["work_dir"]
 
 
-            # run inference of MarketGAN and save the generated data to the work_dir
+            # run inference of MarketGAN_Service and save the generated data to the work_dir
             # TODO
+            # get the dynamic, stock , start_date and sample_number from request_json
+            dynamic_description = request_json.get("dynamic")
+            stock_ticker = request_json.get("stock_ticker")
+            start_date = request_json.get("start_date")
+            sample_number = request_json.get("sample_number")
+
+            # process the dynmic in to a [bear_strength, flat_strength, bull_strength] list
+            if dynamic_description == "bear":
+                dynamic = [1, 0, 0]
+            elif dynamic_description == "flat":
+                dynamic = [0.33, 0.33, 0.33]
+            elif dynamic_description == "bull":
+                dynamic = [0, 0, 1]
+            elif dynamic_description == "custom":
+                bear_strength = request_json.get("bear_strength")
+                flat_strength = request_json.get("flat_strength")
+                bull_strength = request_json.get("bull_strength")
+                dynamic = [bear_strength, flat_strength, bull_strength]
+
+            # generate the data
+            generated_data_path,figure_path=self.MarketGAN.inference(start_date,stock_ticker,dynamic,sample_number,work_dir)
+
+            #read the figure and encode it to base64
+            with open(figure_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read())
+                encoded_string= str(encoded_string, 'utf-8')
+
+
+
+
+
 
             # save session information if it is a new session
             if new_session:
                 self.sessions = self.dump_sessions({session_id: {
-                    "dataset": dataset_name,
-                    "task_name": task_name,
                     "work_dir": work_dir,
-                    "cfg_path": cfg_path,
-                    "script_path": train_script_path,
-                    "train_log_path": log_path,
-                    "test_log_path": os.path.join(os.path.dirname(log_path), "test_log.txt")
+                    'generated_data_path': generated_data_path
                 }})
+            else:
+                # update session information
+                self.sessions[session_id]["work_dir"] = work_dir
+                self.sessions[session_id]["generated_data_path"] = generated_data_path
+                self.sessions = self.dump_sessions({session_id: self.sessions[session_id]})
             # return the figure
             error_code = 0
-            info = "request success, read uploaded csv file"
+            info = "request success, post generated figure"
             res = {
                 "error_code": error_code,
                 "info": info,
-                "fig": csv_data,
+                "fig": encoded_string,
                 'session_id': session_id
             }
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            info = str(exc_type) + str(fname) + str(exc_tb.tb_lineno)
-            print(info)
-            return None
+            error_code = 1
+            info = "request data error, {}".format(e)
+            res = {
+                "error_code": error_code,
+                "info": info + str(exc_type) + str(fname) + str(exc_tb.tb_lineno),
+                "session_id": session_id,
+                "file": None
+            }
+            logger.info(info)
+            return jsonify(res)
 
     def MarketGAN_Download(self, request):
         request_json = json.loads(request.get_data(as_text=True))
-        # print('request_json',request_json)
         try:
-            # get session_id from request_json
             session_id = request_json.get("session_id")
             self.sessions = self.load_sessions()
+
             if session_id in self.sessions:
                 work_dir = self.sessions[session_id]["work_dir"]
-                if "custom_datafile_paths" in self.sessions[session_id]:
-                    custom_datafile_paths = self.sessions[session_id]["custom_datafile_paths"]
-                    custom_datafile_names = [os.path.basename(path).split('.')[0] for path in custom_datafile_paths]
-                else:
-                    custom_datafile_paths = []
-                    custom_datafile_names = []
-                MDM_datafile_path = self.sessions[session_id]["MDM_datafile_path"][-1]
-                # MDM_dataset_name = self.sessions[session_id]["MDM_dataset_name"]
-                MDM_dataset_name = str(os.path.basename(MDM_datafile_path).split('.')[0])
             else:
                 error_code = 1
-                info = "Please start your session first from running a modeling"
+                info = "Please start your session first from generation"
                 res = {
                     "error_code": error_code,
                     "info": info,
@@ -1475,52 +1516,29 @@ class Server():
                 logger.info(info)
                 return jsonify(res)
 
-            # forbid download csv file if it is not a custom data
-            # if MDM_dataset_name not in custom_datafile_names:
-            #     error_code = 1
-            #     info = "request error, you can only download custom data"
-            #     res = {
-            #         "error_code": error_code,
-            #         "info": info,
-            #         "file": None
-            #     }
-            #     logger.info(info)
-            #     return jsonify(res)
+            generated_data_path = self.sessions[session_id]["generated_data_path"]
+            # parse the generated_data_path to get the file name
+            filename = str(os.path.basename(generated_data_path).split('.')[0])
 
-            # get the saved csv file path that is set in save_market_dynamics_labeling()
-            # print('saved_dataset_path',self.sessions[session_id]["MDM_datafile_path"])
-            saved_dataset_path = self.sessions[session_id]["MDM_datafile_path"][-1]
+            # Read the .npy file contents
+            npy_data = np.load(generated_data_path)
 
-            # Read the CSV file contents
-            with open(saved_dataset_path, 'r', encoding='utf-8') as file:
-                csv_data = file.read()
-
-            # Create a response with appropriate headers for downloading a CSV file
-
-            # TODO: modify the file response name
-            # response = Response(
-            #     csv_data,
-            #     content_type='text/csv',
-            #     headers={
-            #         "Content-Disposition": f"attachment; filename={MDM_dataset_name}",
-            #         "Content-Type": "text/csv; charset=utf-8"
-            #     }
-            # )
+            # Serialize NumPy array to JSON serializable list
+            npy_data_serializable = npy_data.tolist()
 
             error_code = 0
-            info = "request success, read uploaded csv file"
+            info = "request success, read uploaded .npy file"
             res = {
                 "error_code": error_code,
                 "info": info,
-                "data": csv_data,
-                'filename': MDM_dataset_name,
+                "data": npy_data_serializable,
+                'filename': filename,
                 'session_id': session_id
             }
             logger.info(info)
             return jsonify(res)
 
         except Exception as e:
-
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             error_code = 1

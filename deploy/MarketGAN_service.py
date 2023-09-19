@@ -1,32 +1,44 @@
-from MarketGAN import MarketGAN
-from MarketGAN.utils.util import *
-from MarketGAN.models.utils import *
+from MarketGAN_Service.MarketGAN import MarketGAN,Tee
+from MarketGAN_Service.utils.util import *
+from MarketGAN_Service.models.utils import *
 import torch
 import numpy as np
 import os
 import pandas as pd
-from MarketGAN.data.conditional_data_preprocess import *
-from MarketGAN.metrics.visualization import *
+import sys
+from MarketGAN_Service.data.conditional_data_preprocess import *
+from MarketGAN_Service.metrics.visualization import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-class MarketGAN_utils():
+class MarketGAN_service():
     def __init__(self):
         torch.autograd.set_detect_anomaly(True)
-        self.model_path='MarketGAN/model'
-        variables = pd.read_pickle(f'{self.model_path}/preprocessed_data/variables.pkl')
+        self.model_path='MarketGAN_Service/model/DJ30_V2_RT'
+        # variables = pd.read_pickle(f'{self.model_path}/preprocessed_data/variables.pkl')
         # create variables using the variables names in the variables list and read the data from '.output/preprocessed_data'
-        for variable in variables:
-            try:
-                exec(f'{variable}=pd.read_pickle(f"{self.model_path}/preprocessed_data/{variable}.pkl")')
-            except:
-                continue
+        features=pd.read_pickle(f'{self.model_path}/preprocessed_data/features.pkl')
+        dynamics_tokenizer = pd.read_pickle(f'{self.model_path}/preprocessed_data/dynamics_tokenizer.pkl')
+        training_args = pd.read_pickle(f'{self.model_path}/preprocessed_data/training_args.pkl')
+        tic_tokenizer = pd.read_pickle(f'{self.model_path}/preprocessed_data/tic_tokenizer.pkl')
+
+        # for variable in variables:
+        #     try:
+        #         exec(f'{variable}=pd.read_pickle(f"{self.model_path}/preprocessed_data/{variable}.pkl")')
+        #         print('load ',variable ,exec(variable))
+        #     except:
+        #         print('fail to load ',variable)
+        #         continue
         # configure network parameters
         args = training_args
         # torch.manual_seed(args.seed)
+        args.batch_size = 64
+        # change device number here
+        args.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         print(args)
         dynamic_supervisor_args, label_supervisor_args, TimesNet_args = configure_network_args(args)
 
         self.MarketGAN_instance = MarketGAN()
         data_path, args = self.MarketGAN_instance.init(args)
+        print('MarketGAN_Service init done')
 
         # update the args
         self.MarketGAN_instance.dynamic_supervisor_args = dynamic_supervisor_args
@@ -34,14 +46,14 @@ class MarketGAN_utils():
         self.MarketGAN_instance.TimesNet_args = TimesNet_args
         # generate the data
         args, model = self.MarketGAN_instance.load(args, self.model_path)
-        args.batch_size=64
+        print('MarketGAN_Service load done')
         self.model=model
         self.args=args
         # read the data from file
-        data_path='MarketGAN/data/DJI_data.csv'
+        data_path='MarketGAN_Service/data/DJI_data.csv'
         self.data=pd.read_csv(data_path)
 
-        return model
+
 
 
 
@@ -51,6 +63,12 @@ class MarketGAN_utils():
         # sample_number: the number of samples we want to generate
         # date: the date we want to generate the data
         # ticker: string of the ticker we want to generate the data
+
+
+        if self.MarketGAN_instance.lognow==False:
+            f = open(f"{work_dir}/res.log", 'a')
+            backup = sys.stdout
+            sys.stdout = Tee(sys.stdout, f)
 
         # filter data by ticker ticker
         data=self.data[self.data['tic']==ticker]

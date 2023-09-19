@@ -17,10 +17,10 @@ class CSDI_base(nn.Module):
         self.device = device
         self.target_dim = target_dim
 
-        self.emb_time_dim = config["MarketGAN"]["timeemb"]
-        self.emb_feature_dim = config["MarketGAN"]["featureemb"]
-        self.is_unconditional = config["MarketGAN"]["is_unconditional"]
-        self.target_strategy = config["MarketGAN"]["target_strategy"]
+        self.emb_time_dim = config["MarketGAN_Service"]["timeemb"]
+        self.emb_feature_dim = config["MarketGAN_Service"]["featureemb"]
+        self.is_unconditional = config["MarketGAN_Service"]["is_unconditional"]
+        self.target_strategy = config["MarketGAN_Service"]["target_strategy"]
 
         self.emb_total_dim = self.emb_time_dim + self.emb_feature_dim
         if self.is_unconditional == False:
@@ -158,7 +158,7 @@ class CSDI_base(nn.Module):
         imputed_samples = torch.zeros(B, n_samples, K, L).to(self.device)
 
         for i in range(n_samples):
-            # generate noisy observation for unconditional MarketGAN
+            # generate noisy observation for unconditional MarketGAN_Service
             if self.is_unconditional == True:
                 noisy_obs = observed_data
                 noisy_cond_history = []

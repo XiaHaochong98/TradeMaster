@@ -127,7 +127,7 @@ def update_data_root(cfg, logger=None):
     MMDET_DATASETS. Otherwise, using cfg.data_root as default.
 
     Args:
-        cfg (mmcv.Config): The MarketGAN config need to modify
+        cfg (mmcv.Config): The MarketGAN_Service config need to modify
         logger (logging.Logger | str | None): the way to print msg
     """
     assert isinstance(cfg, mmcv.Config), \
@@ -213,7 +213,7 @@ def replace_cfg_vals(ori_cfg):
     # the type of ori_cfg._cfg_dict is mmcv.utils.config.ConfigDict
     updated_cfg = Config(
         replace_value(ori_cfg._cfg_dict), filename=ori_cfg.filename)
-    # replace the MarketGAN with model_wrapper
+    # replace the MarketGAN_Service with model_wrapper
     if updated_cfg.get('model_wrapper', None) is not None:
         updated_cfg.model = updated_cfg.model_wrapper
         updated_cfg.pop('model_wrapper')

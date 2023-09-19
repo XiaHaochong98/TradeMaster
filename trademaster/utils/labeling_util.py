@@ -90,7 +90,7 @@ class Worker():
             self.order = 4
             self.Wn_key_indicator = self.filter_parameters_calculation(filter_strength)
         else:
-            raise Exception("Sorry, only linear MarketGAN is provided for now.")
+            raise Exception("Sorry, only linear MarketGAN_Service is provided for now.")
         self.preprocess(data_path)
 
     def filter_parameters_calculation(self, filter_strength):
