@@ -1417,14 +1417,17 @@ class Server():
             # get session_id from request_json
             new_session=False
             session_id = request_json.get("session_id")
+            logger.info('get session_id from request_json', session_id)
             # creat a new session_id if session_id is None
             if session_id is None or session_id == '':
                 session_id = str(uuid.uuid1())
                 new_session=True
                 work_dir = os.path.join(ROOT, "work_dir", session_id,
                                         f"MarketGAN_simulator")
+                logger.info('create new session_id', session_id)
             else:
                 self.sessions = self.load_sessions()
+                logger.info('load session_id', session_id)
                 if session_id in self.sessions:
                     work_dir = self.sessions[session_id]["work_dir"]
 
@@ -1438,20 +1441,20 @@ class Server():
             sample_number = request_json.get("sample_number")
 
             # process the dynmic in to a [bear_strength, flat_strength, bull_strength] list
-            if dynamic_description == "bear":
+            if dynamic_description == "Bear":
                 dynamic = [1, 0, 0]
-            elif dynamic_description == "flat":
-                dynamic = [0.33, 0.33, 0.33]
-            elif dynamic_description == "bull":
+            elif dynamic_description == "Neutral":
+                dynamic = [0, 0, 0]
+            elif dynamic_description == "Bull":
                 dynamic = [0, 0, 1]
-            elif dynamic_description == "custom":
+            elif dynamic_description == "Custom":
                 bear_strength = request_json.get("bear_strength")
                 flat_strength = request_json.get("flat_strength")
                 bull_strength = request_json.get("bull_strength")
-                dynamic = [bear_strength, flat_strength, bull_strength]
+                dynamic = [float(bear_strength), float(flat_strength), float(bull_strength)]
 
             # generate the data
-            generated_data_path,figure_path=self.MarketGAN.inference(start_date,stock_ticker,dynamic,sample_number,work_dir)
+            generated_data_path,figure_path=self.MarketGAN.inference(start_date,stock_ticker,dynamic,sample_number,work_dir,logger)
 
             #read the figure and encode it to base64
             with open(figure_path, "rb") as image_file:
@@ -1483,18 +1486,24 @@ class Server():
                 "fig": encoded_string,
                 'session_id': session_id
             }
+            return jsonify(res)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             error_code = 1
-            info = "request data error, {}".format(e)
+            info = (
+                f"Request data error: {e}\n"
+                f"Exception type: {exc_type}\n"
+                f"File name: {fname}\n"
+                f"Line number: {exc_tb.tb_lineno}"
+            )
             res = {
                 "error_code": error_code,
-                "info": info + str(exc_type) + str(fname) + str(exc_tb.tb_lineno),
+                "info": info,
                 "session_id": session_id,
                 "file": None
             }
-            logger.info(info)
+            logger.exception(info)  # Log the exception traceback
             return jsonify(res)
 
     def MarketGAN_Download(self, request):

@@ -9,6 +9,7 @@ import sys
 from MarketGAN_Service.data.conditional_data_preprocess import *
 from MarketGAN_Service.metrics.visualization import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+from datetime import datetime
 class MarketGAN_service():
     def __init__(self):
         torch.autograd.set_detect_anomaly(True)
@@ -52,20 +53,26 @@ class MarketGAN_service():
         # read the data from file
         data_path='MarketGAN_Service/data/DJI_data.csv'
         self.data=pd.read_csv(data_path)
+        # strip the 'date' column of self.data to datetime, the original format is '11/12/2013'
+        self.data['date']=pd.to_datetime(self.data['date'],format='%d/%m/%Y')
 
 
 
 
 
-    def inference(self,date,ticker,dynamic,sample_number,work_dir):
+    def inference(self,date,ticker,dynamic,sample_number,work_dir,logger):
 
         # dynamic: [bear_strength,flat_strength,bull_strength]
         # sample_number: the number of samples we want to generate
         # date: the date we want to generate the data
         # ticker: string of the ticker we want to generate the data
 
+        # stripe the date to datetime, the original format is '2016-01-04'
+        date=datetime.strptime(date,'%Y-%m-%d')
 
-        if self.MarketGAN_instance.lognow==False:
+
+        if not os.path.exists(work_dir):
+            os.makedirs(work_dir)
             f = open(f"{work_dir}/res.log", 'a')
             backup = sys.stdout
             sys.stdout = Tee(sys.stdout, f)
@@ -79,7 +86,10 @@ class MarketGAN_service():
 
         # get the history data from the data, the history data is the data before the date with length args.max_seq_len
         history_sample= data[data['date'] < date].iloc[-self.args.max_seq_len:, :]
+        # logger.info(f'history_sample: {history_sample}, history_sample.shape: {history_sample.shape}')
         history_sample = history_sample.loc[:, features]
+        #log history_sample
+
 
         # reparameterization the history_sample
         # creat a dummy data_sample with the same shape and column names as history_sample
@@ -91,15 +101,22 @@ class MarketGAN_service():
         # last_low_befor_data_sample = data.iloc[interval[0] + i - 1, :]['low']
         # do the same thing to history_sample
         last_low_befor_history_sample = data[data['date'] < date].iloc[-self.args.max_seq_len-1, :]
+        last_low_sample= data[data['date'] < date].iloc[-1, :]
+        last_low_befor_history_sample = last_low_befor_history_sample['low']
+        last_low_sample = last_low_sample['low']
         # data_sample_low_diff = data_sample['low'].diff()
         # the first element of data_sample_low_diff is nan, we replace it with the first low in data sample minus last_low_befor_data_sample
         # data_sample_low_diff.iloc[0] = data_sample['low'].iloc[0] - last_low_befor_data_sample
         # data_sample['low'] = data_sample_low_diff
         # do the same thing to history_sample
         history_sample_low_diff = history_sample['low'].diff()
+        # log history_sample['low'].iloc[0] and last_low_befor_history_sample
+        # logger.info(f'history_sample[low].iloc[0]: {history_sample["low"].iloc[0]}')
+        # logger.info(f'last_low_befor_history_sample: {last_low_befor_history_sample}')
         history_sample_low_diff.iloc[0] = history_sample['low'].iloc[0] - last_low_befor_history_sample
         history_sample['low'] = history_sample_low_diff
-        last_hist_vec=np.array([None, last_low_befor_history_sample])
+        last_low_befor_history_sample=np.array([last_low_befor_history_sample])
+        last_low_sample=np.array([last_low_sample])
 
         # normalization
         # we use the 'low' feature of historical data to normalize the data
@@ -107,6 +124,7 @@ class MarketGAN_service():
             data_sample, history_sample)
         T=self.args.max_seq_len
         scaler = np.vstack([low_scaler, O_minus_L_scaler, C_minus_L_scaler, H_minus_maxOC_scaler]).T  # dim: (n,4)
+        #
         print("scaler.shape: ", scaler.shape, " scaler.dtype: ", scaler.dtype)
         # save the order of the scaler
         scaler_order = ['low', 'O_minus_L', 'C_minus_L', 'H_minus_maxOC']
@@ -124,7 +142,6 @@ class MarketGAN_service():
         # expand the T to (sample_number,1)
         T=np.array([T]*sample_number)
         # expand the scaler to (sample_number,4)
-        scaler=np.expand_dims(scaler,axis=0)
         scaler=np.repeat(scaler,sample_number,axis=0)
         # expand the history to (sample_number,T,feature_dim)
         H=np.expand_dims(H,axis=0)
@@ -132,6 +149,9 @@ class MarketGAN_service():
         # expand the last_low_befor_history_sample to (sample_number,feature_dim)
         last_low_befor_history_sample=np.expand_dims(last_low_befor_history_sample,axis=0)
         last_low_befor_history_sample=np.repeat(last_low_befor_history_sample,sample_number,axis=0)
+        # expand the last_low_sample to (sample_number,feature_dim)
+        last_low_sample=np.expand_dims(last_low_sample,axis=0)
+        last_low_sample=np.repeat(last_low_sample,sample_number,axis=0)
 
 
 
@@ -141,7 +161,7 @@ class MarketGAN_service():
         noisy_dynamic=True
         noisy_history=True
         noise_multiplier=1
-        print('noisy_dynamic',noisy_dynamic,'noisy_history',noisy_history)
+        # print('noisy_dynamic',noisy_dynamic,'noisy_history',noisy_history)
 
         # generate the data smaple_number times and save the generated data to a list, get the average of the list as the generated data
         # get a seed list of sample_number length as int
@@ -149,6 +169,7 @@ class MarketGAN_service():
         seed_list=[int(i) for i in seed_list]
         # sperate the train_Last_h to train_Last_h_data and train_Last_h_history on the last dimension
         Last_h_history = last_low_befor_history_sample
+        Last_h_data = last_low_sample
         generated_samples=[]
 
         # apply a random noise to each sample in dynamic and history
@@ -164,7 +185,7 @@ class MarketGAN_service():
 
             if noisy_dynamic:
                 np.random.seed(sample_seed)
-                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/20)
+                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/10)
                 # dynamic_prossed_noised=np.random.normal(dynamic, dynamic/20)
                 # # set the negative element to 0
                 dynamic_prossed_noised[dynamic_prossed_noised<0]=0
@@ -176,7 +197,7 @@ class MarketGAN_service():
             if noisy_history:
                 np.random.seed(sample_seed)
                 # history_prossed_noised=np.random.normal(H, np.abs(H)/1000)
-                history_prossed_noised[i]=np.random.normal(H[i], np.abs(H[i])/1000)
+                history_prossed_noised[i]=np.random.normal(H[i], np.abs(H[i])/100)
                 # set the negative element to 0
                 # history_prossed_noised[history_prossed_noised<0]=0
                 history_prossed_noised[history_prossed_noised<0]=0
@@ -199,26 +220,54 @@ class MarketGAN_service():
         generated_X = conditional_timegan_generator(model=self.model, T=T, args=self.args,
                                                            dynamics=dynamic_prossed_noised, labels=tic_token,
                                                            history=history_prossed_noised,
-                                                           noise_multiplier=noise_multiplier, seed=sample_seed)
+                                                           noise_multiplier=noise_multiplier,seed=seed_list[0])
 
         # rescale the generated data to the original scale
-
+        # log the generated data,H
+        # logger.info(f'generated_X: {generated_X}, generated_X.shape: {generated_X.shape}')
+        # logger.info(f'H: {H}, H.shape: {H.shape}')
+        # logger.info(f'scaler: {scaler}, scaler.shape: {scaler.shape}')
+        # logger.info(f'features: {features}, features.shape: {len(features)}')
         generated_data_rescaled = conditional_rescale_data(generated_X, scaler,
-                                                                  self.args.differential_features, H,
+                                                                  self.args.differential_features, Last_h_data,
                                                                   self.args.scaler_order,
                                                                   original_feature_order=features)
+        # calculate the difference between each adjacent sample
+        diff_list=[]
+        for i in range(generated_data_rescaled.shape[0]-1):
+            diff_list.append(np.sum(np.abs(generated_data_rescaled[i]-generated_data_rescaled[i+1])))
+        # log the mean and variance of the diff_list
+        logger.info(f'diff_list mean and variance: {np.mean(diff_list)}, {np.var(diff_list)}')
+        # log the first 10 diff_list
+        logger.info(f'diff_list[:10]: {diff_list[:10]}')
 
-        generated_data_rescaled_summary=np.mean(generated_samples,axis=0)
+        generated_data_rescaled_summary=np.mean(generated_data_rescaled,axis=0)
         # data_rescaled = conditional_rescale_data(X, scaler, args.differential_features, Last_h_data, args.scaler_order, original_feature_order=args.feature)
-        history_rescaled_one = conditional_rescale_data(H[0], scaler[0], self.args.differential_features, Last_h_history[0], self.args.scaler_order, original_feature_order=features)
+        # slice the first sample of H, scalr and Last_h_history while keeping the shape
+        H_slice=H[0]
+        H_slice=np.expand_dims(H_slice,axis=0)
+        scaler_slice=scaler[0]
+        scaler_slice=np.expand_dims(scaler_slice,axis=0)
+        Last_h_history_slice=Last_h_history[0]
+        Last_h_history_slice=np.expand_dims(Last_h_history_slice,axis=0)
+
+        history_rescaled_one = conditional_rescale_data(H_slice, scaler_slice, self.args.differential_features, Last_h_history_slice, self.args.scaler_order, original_feature_order=features)
 
         # Save generated data
-        generated_data_path=f"{work_dir}/{ticker}_{date}_{dynamic}.npy"
+        date_str=date.strftime('%Y-%m-%d')
+        generated_data_path=f"{work_dir}/{ticker}_{date_str}_{dynamic[0]}.npy"
         np.save(generated_data_path, generated_data_rescaled)
+        # log history_rescaled_one,generated_data_rescaled_summary
+        # logger.info(f'history_rescaled_one: {history_rescaled_one}, history_rescaled_one.shape: {history_rescaled_one.shape}')
+        # logger.info(f'generated_data_rescaled_summary: {generated_data_rescaled_summary}, generated_data_rescaled_summary.shape: {generated_data_rescaled_summary.shape}')
+        data=np.concatenate((history_rescaled_one[0],generated_data_rescaled_summary),axis=0)
+        # log generated_data_rescaled_summary for the first 5 features
+        logger.info(f'generated_data_rescaled_summary[:5]: {generated_data_rescaled_summary[:5]}')
 
-        data=np.concatenate((history_rescaled_one,generated_data_rescaled_summary),axis=0)
+        # logger.info(f'data, data.shape: {data.shape}')
         # print('generated data shape',data.shape)
-        figure_path=plot_OHLCcharts(data,features,work_dir,fig_suffix=f'{ticker}_{date}_{dynamic}_{sample_number}',title=f'Average of {sample_number} samples generated on {date} for {ticker} with dynamic {dynamic}')
+        # date to str, only keep the date part
+        figure_path=plot_OHLCcharts(data,features,work_dir,index=self.args.max_seq_len,date=date_str,fig_suffix=f'{ticker}_{date_str}_{dynamic[0]}_{sample_number}',title=f'Average of {sample_number} AAPL samples with dynamic {dynamic[0]} with real history')
 
         return generated_data_path,figure_path
 
