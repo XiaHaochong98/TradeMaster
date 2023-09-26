@@ -272,11 +272,11 @@ class MarketDynamicsModelingAnalysis(object):
         axs[2, 1].set_title('Average max downtrend of each dynamics')
         plt.tight_layout()
         # save the figure
-        path=os.path.join(data_folder,'metrics_of_each_dynamics.png')
-        fig.savefig(path)
+        plot_path=os.path.join(data_folder,'metrics_of_each_dynamics.png')
+        fig.savefig(plot_path)
         # print("metrics_of_each_dynamics.png saved at",path)
         # stor the numercial data to csv
-        path = os.path.join(data_folder, 'metrics_of_each_dynamics.csv')
+        data_path = os.path.join(data_folder, 'metrics_of_each_dynamics.csv')
         # store the average and std of average_k_list_list, average_length_list_list, mpp_k_list_list, mdd_k_list_list, mpp_length_list_list, mdd_length_list_list to csv
         df = pd.DataFrame({'average_k_list_mean': [np.mean(average_k_list_list[i]) for i in range(dynamics_num)],
                            'average_k_list_std': [np.std(average_k_list_list[i]) for i in range(dynamics_num)],
@@ -292,8 +292,8 @@ class MarketDynamicsModelingAnalysis(object):
                            'mpp_length_list_std': [np.std(mpp_length_list_list[i]) for i in range(dynamics_num)],
                            'mdd_length_list_mean': [np.mean(mdd_length_list_list[i]) for i in range(dynamics_num)],
                            'mdd_length_list_std': [np.std(mdd_length_list_list[i]) for i in range(dynamics_num)]})
-        df.to_csv(path)
-        return path
+        df.to_csv(data_path)
+        return plot_path
 
     def run_analysis(self,data_path):
         # if extention is .feather

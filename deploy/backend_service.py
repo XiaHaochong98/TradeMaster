@@ -963,6 +963,12 @@ class Server():
                     MDM_visualization_paths = MDM_cfg.market_dynamics_model.market_dynamic_modeling_visualization_paths
                     MDM_analysis_path = MDM_cfg.market_dynamics_model.market_dynamic_modeling_analysis_paths
 
+
+                    # log MDM_visualization_paths and MDM_analysis_path
+                    logger.info('MDM_visualization_paths',MDM_visualization_paths)
+                    logger.info('MDM_analysis_path',MDM_analysis_path)
+
+
                     with open(MDM_visualization_paths[0], "rb") as image_file:
                         encoded_string_result = base64.b64encode(image_file.read())
                         encoded_string_result= str(encoded_string_result, 'utf-8')
