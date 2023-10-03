@@ -185,7 +185,7 @@ class MarketGAN_service():
 
             if noisy_dynamic:
                 np.random.seed(sample_seed)
-                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/10)
+                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/5)
                 # dynamic_prossed_noised=np.random.normal(dynamic, dynamic/20)
                 # # set the negative element to 0
                 dynamic_prossed_noised[dynamic_prossed_noised<0]=0
@@ -197,7 +197,7 @@ class MarketGAN_service():
             if noisy_history:
                 np.random.seed(sample_seed)
                 # history_prossed_noised=np.random.normal(H, np.abs(H)/1000)
-                history_prossed_noised[i]=np.random.normal(H[i], np.abs(H[i])/100)
+                history_prossed_noised[i]=np.random.normal(H[i], np.abs(H[i])/10)
                 # set the negative element to 0
                 # history_prossed_noised[history_prossed_noised<0]=0
                 history_prossed_noised[history_prossed_noised<0]=0
@@ -267,6 +267,9 @@ class MarketGAN_service():
         # logger.info(f'data, data.shape: {data.shape}')
         # print('generated data shape',data.shape)
         # date to str, only keep the date part
+        # plot the first 20 samples of generated_data_rescaled
+        # for i in range(20):
+        #     plot_OHLCcharts(np.concatenate((history_rescaled_one[0],generated_data_rescaled[i]),axis=0),features,work_dir,index=self.args.max_seq_len,date=date_str,fig_suffix=f'{ticker}_{date_str}_{dynamic[0]}_{i}',title=f'Generated {i} AAPL samples with dynamic {dynamic[0]} number {i}' )
         figure_path=plot_OHLCcharts(data,features,work_dir,index=self.args.max_seq_len,date=date_str,fig_suffix=f'{ticker}_{date_str}_{dynamic[0]}_{sample_number}',title=f'Average of {sample_number} AAPL samples with dynamic {dynamic[0]} with real history')
 
         return generated_data_path,figure_path
