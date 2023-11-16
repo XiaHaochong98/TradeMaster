@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import pytz
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response,send_from_directory
 from mmcv import Config
 
 ROOT = str(pathlib.Path(__file__).resolve().parents[1])
@@ -31,9 +31,29 @@ from tools import market_dynamics_labeling
 import base64
 
 tz = pytz.timezone('Asia/Shanghai')
+static_folder = r'D:\pycharm_workspace\final-year-project-reactjs\build'
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=static_folder)
 CORS(app, resources={r"/TradeMaster/*": {"origins": "*"}})
+logging.basicConfig(level=logging.DEBUG)
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve(path):
+    logging.debug(f"Received request for path: {path}")
+    file_path = os.path.join(app.static_folder, path)
+
+    if path != "" and os.path.exists(file_path):
+        logging.debug(f"Serving file: {file_path}")
+        return send_from_directory(app.static_folder, path)
+    else:
+        logging.debug(f"Serving index.html from {app.static_folder}")
+        return send_from_directory(app.static_folder, 'index.html')
+
+@app.route("/connect_test")
+def connect_test():
+    return "This is a test"
+
+
 def run_cmd(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     command_output = process.stdout.read().decode('utf-8')

@@ -185,7 +185,7 @@ class MarketGAN_service():
 
             if noisy_dynamic:
                 np.random.seed(sample_seed)
-                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/5)
+                dynamic_prossed_noised[i]=np.random.normal(dynamic[i], dynamic[i]/10)
                 # dynamic_prossed_noised=np.random.normal(dynamic, dynamic/20)
                 # # set the negative element to 0
                 dynamic_prossed_noised[dynamic_prossed_noised<0]=0
