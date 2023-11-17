@@ -51,10 +51,10 @@ class MarketGAN_service():
         self.model=model
         self.args=args
         # read the data from file
-        data_path='MarketGAN_Service/data/DJI_data.csv'
-        self.data=pd.read_csv(data_path)
-        # strip the 'date' column of self.data to datetime, the original format is '11/12/2013'
-        self.data['date']=pd.to_datetime(self.data['date'],format='%d/%m/%Y')
+        self.data_path='MarketGAN_Service/data/DJI_data.csv'
+        # self.data=pd.read_csv(data_path)
+        # # strip the 'date' column of self.data to datetime, the original format is '11/12/2013'
+        # self.data['date']=pd.to_datetime(self.data['date'],format='%d/%m/%Y')
 
 
 
@@ -68,6 +68,9 @@ class MarketGAN_service():
         # ticker: string of the ticker we want to generate the data
 
         # stripe the date to datetime, the original format is '2016-01-04'
+        data=pd.read_csv(self.data_path)
+        # strip the 'date' column of self.data to datetime, the original format is '11/12/2013'
+        data['date']=pd.to_datetime(data['date'],format='%d/%m/%Y')
         date=datetime.strptime(date,'%Y-%m-%d')
 
 
@@ -78,7 +81,7 @@ class MarketGAN_service():
             sys.stdout = Tee(sys.stdout, f)
 
         # filter data by ticker ticker
-        data=self.data[self.data['tic']==ticker]
+        data=data[data['tic']==ticker]
         # sort the data by date, from old to new
         data=data.sort_values(by=['date'])
         features=self.args.feature
