@@ -1596,7 +1596,9 @@ class Server():
         request_json = json.loads(request.get_data(as_text=True))
         try:
             show_dates = request_json.get("show_dates")
-
+            show_dates= int(show_dates)
+            logger.info(request_json)
+            logger.info(show_dates)
             res = self.pm_inference.run(show_dates)
 
             error_code = 0
@@ -1604,7 +1606,9 @@ class Server():
             res = {
                 "error_code": error_code,
                 "info": info,
-                "data": res,
+                "djia": res["djia"],
+                "returns": res["returns"],
+                "topk": "stocks:{}, weights:{}".format(res["topk"]["stocks"], res["topk"]["weights"]),
                 'session_id': ''
             }
             return jsonify(res)

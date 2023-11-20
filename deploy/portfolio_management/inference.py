@@ -170,6 +170,7 @@ class PMInference():
     def __init__(self):
         self.config_path = os.path.join(ROOT, 'config.py')
         self.scaler_path = os.path.join(ROOT, 'scaler_model.pkl')
+        self.model_path = os.path.join(ROOT, 'model.pth')
 
         self.start_date = '2023-01-01'
         self.topk = 5
@@ -207,7 +208,7 @@ class PMInference():
         self.agent = AGENT.build(self.cfg.agent)
         print("build agent success")
 
-        self.agent.set_state_dict(torch.load("model.pth", map_location=self.device))
+        self.agent.set_state_dict(torch.load(self.model_path, map_location=self.device))
         print("load model success")
 
     def _init_stocks_data(self):
@@ -349,6 +350,8 @@ class PMInference():
             "weights": [round(cash, 4)] + topk_portfolio_stocks_weights
         }
 
+        topk_data['weights'] = np.array(topk_data['weights']).astype(np.float64).tolist()
+
         return data, topk_data
 
     def run(self, show_dates=None):
@@ -381,7 +384,6 @@ class PMInference():
             "topk": topk_data,
         }
 
-        print(res)
         return res
 
     def plot_djia(self, df):
