@@ -29,6 +29,7 @@ import regex as re
 import copy
 from tools import market_dynamics_labeling
 import base64
+from portfolio_management.inference import PMInference
 
 tz = pytz.timezone('Asia/Shanghai')
 static_folder = r'D:\pycharm_workspace\final-year-project-reactjs\build'
@@ -261,6 +262,9 @@ class Server():
         }
     # load MarketGAN_Service MarketGAN_Service
         self.MarketGAN = MarketGAN_service()
+
+        # load pm inference
+        self.pm_inference = PMInference()
 
 
     def parameters(self):
@@ -1587,7 +1591,34 @@ class Server():
             logger.info(info)
             return jsonify(res)
 
+    def portfolio_management(self, request):
 
+        request_json = json.loads(request.get_data(as_text=True))
+        try:
+            show_dates = request_json.get("show_dates")
+
+            res = self.pm_inference.run(show_dates)
+
+            error_code = 0
+            info = "request success, post generated figure"
+            res = {
+                "error_code": error_code,
+                "info": info,
+                "data": res,
+                'session_id': ''
+            }
+            return jsonify(res)
+        except Exception as e:
+            error_code = 1
+            info = "request data error, {}".format(e)
+            res = {
+                "error_code": error_code,
+                "info": info,
+                "session_id": '',
+                "data": None
+            }
+            logger.exception(info)  # Log the exception traceback
+            return jsonify(res)
 
 class HealthCheck():
     def __init__(self):
@@ -1702,6 +1733,10 @@ def MarketGAN_Download():
     res = SERVER.MarketGAN_Download(request)
     return res
 
+@app.route("/api/TradeMaster/portfolio_management", methods=["POST"])
+def portfolio_management():
+    res = SERVER.portfolio_management(request)
+    return res
 
 @app.route("/api/TradeMaster/healthcheck", methods=["GET"])
 def health_check():
