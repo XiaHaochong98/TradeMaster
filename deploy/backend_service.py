@@ -1595,11 +1595,33 @@ class Server():
 
         request_json = json.loads(request.get_data(as_text=True))
         try:
+
+            reinfer = request_json.get("reinfer")
+            if reinfer:
+                reinfer = True
+
             show_dates = request_json.get("show_dates")
             show_dates= int(show_dates)
             logger.info(request_json)
             logger.info(show_dates)
-            res = self.pm_inference.run(show_dates)
+
+            if reinfer:
+                res = self.pm_inference.run(show_dates)
+            else:
+                exp_path = self.pm_inference.exp_path
+
+                with open(os.path.join(exp_path, 'djia.png'), "rb") as f:
+                    djia_base64 = base64.b64encode(f.read()).decode('utf-8')
+                with open(os.path.join(exp_path, 'returns.png'), "rb") as f:
+                    returns_base64 = base64.b64encode(f.read()).decode('utf-8')
+                with open(os.path.join(exp_path, 'topk.json'), "r") as f:
+                    topk_data = json.load(f)
+
+                res = {
+                    "djia": djia_base64,
+                    "returns": returns_base64,
+                    "topk": topk_data,
+                }
 
             error_code = 0
             info = "request success, post generated figure"

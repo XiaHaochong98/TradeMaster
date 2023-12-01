@@ -1,3 +1,4 @@
+import json
 import warnings
 warnings.filterwarnings("ignore")
 import os
@@ -372,7 +373,8 @@ class PMInference():
             em_data = em_data.reset_index(drop=True)
         self.plot_returns(em_data)
 
-
+        with open(os.path.join(self.exp_path, 'topk.json'), "w") as f:
+            json.dump(topk_data, f)
         with open(os.path.join(self.exp_path, 'djia.png'), "rb") as f:
             djia_base64 = base64.b64encode(f.read()).decode('utf-8')
         with open(os.path.join(self.exp_path, 'returns.png'), "rb") as f:

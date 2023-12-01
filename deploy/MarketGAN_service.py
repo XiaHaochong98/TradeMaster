@@ -16,8 +16,8 @@ class MarketGAN_service():
         self.model_path='MarketGAN_Service/model/DJ30_V2_RT'
         # variables = pd.read_pickle(f'{self.model_path}/preprocessed_data/variables.pkl')
         # create variables using the variables names in the variables list and read the data from '.output/preprocessed_data'
-        features=pd.read_pickle(f'{self.model_path}/preprocessed_data/features.pkl')
-        dynamics_tokenizer = pd.read_pickle(f'{self.model_path}/preprocessed_data/dynamics_tokenizer.pkl')
+        #features=pd.read_pickle(f'{self.model_path}/preprocessed_data/features.pkl')
+        #dynamics_tokenizer = pd.read_pickle(f'{self.model_path}/preprocessed_data/dynamics_tokenizer.pkl')
         training_args = pd.read_pickle(f'{self.model_path}/preprocessed_data/training_args.pkl')
         tic_tokenizer = pd.read_pickle(f'{self.model_path}/preprocessed_data/tic_tokenizer.pkl')
 
