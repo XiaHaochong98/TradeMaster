@@ -8,6 +8,7 @@ import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from flask_apscheduler import APScheduler
 
 import pandas as pd
 import pytz
@@ -35,8 +36,11 @@ tz = pytz.timezone('Asia/Shanghai')
 static_folder = r'D:\pycharm_workspace\final-year-project-reactjs\build'
 
 app = Flask(__name__, static_folder=static_folder)
+scheduler = APScheduler()
 CORS(app, resources={r"/TradeMaster/*": {"origins": "*"}})
 logging.basicConfig(level=logging.DEBUG)
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
@@ -261,7 +265,7 @@ class Server():
             'sample_number':['64'],
         }
     # load MarketGAN_Service MarketGAN_Service
-        self.MarketGAN = MarketGAN_service()
+        #self.MarketGAN = MarketGAN_service()
 
         # load pm inference
         self.pm_inference = PMInference()
@@ -1669,6 +1673,23 @@ class HealthCheck():
 
 SERVER = Server()
 HEALTHCHECK = HealthCheck()
+
+def portfolio_management_function():
+    global SERVER
+    SERVER.pm_inference.run(show_dates=30)
+
+app.config['SCHEDULER_API_ENABLED'] = True
+app.config['JOBS'] = [
+    {
+        'id': 'my_job',
+        'func': portfolio_management_function,
+        'trigger': 'cron',
+        'hour': 17,  # 每天下午5点
+        'minute': 0,
+    }
+]
+scheduler.init_app(app)
+scheduler.start()
 
 @app.route("/api/TradeMaster/upload_csv", methods=['POST'])
 def upload_csv():
