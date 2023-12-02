@@ -1684,7 +1684,7 @@ app.config['JOBS'] = [
         'id': 'my_job',
         'func': portfolio_management_function,
         'trigger': 'cron',
-        'hour': 17,  # 每天下午5点
+        'hour': 4,  # 每天早上4点
         'minute': 0,
     }
 ]
