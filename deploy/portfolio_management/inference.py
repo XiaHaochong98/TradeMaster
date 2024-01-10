@@ -326,8 +326,6 @@ class PMInference():
         data["earnmore"] = (data["values"] / 1000 - 1) * 100
         data = data[['date', 'earnmore']]
 
-        data["earnmore"].iloc[-110:] = data["earnmore"].iloc[-110:].apply(lambda x: x + 15 if x<20 else x + 8)
-
         latest_portfolios = infos["portfolios"][-1]
         cash = latest_portfolios[0]
         other_stocks = latest_portfolios[1:]
