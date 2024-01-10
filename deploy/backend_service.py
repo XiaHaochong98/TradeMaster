@@ -1609,6 +1609,8 @@ class Server():
             logger.info(request_json)
             logger.info(show_dates)
 
+            show_dates = None
+
             if reinfer:
                 res = self.pm_inference.run(show_dates)
             else:

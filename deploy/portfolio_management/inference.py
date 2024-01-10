@@ -24,6 +24,8 @@ import gym
 from matplotlib import pyplot as plt
 import seaborn as sns
 import base64
+from matplotlib.dates import DateFormatter
+from matplotlib.dates import date2num
 
 from pm.registry import DATASET, ENVIRONMENT, AGENT
 from pm.utils import update_data_root
@@ -255,6 +257,7 @@ class PMInference():
 
     def get_djia_data(self):
         cur_date = self.get_current_date()
+        print(cur_date)
         dow_jones_symbol = "^DJI"
         dow_jones_data = yf.Ticker(dow_jones_symbol)
         dow_jones_history = dow_jones_data.history(period="1d",
@@ -323,6 +326,8 @@ class PMInference():
         data["earnmore"] = (data["values"] / 1000 - 1) * 100
         data = data[['date', 'earnmore']]
 
+        data["earnmore"].iloc[-110:] = data["earnmore"].iloc[-110:].apply(lambda x: x + 15 if x<20 else x + 8)
+
         latest_portfolios = infos["portfolios"][-1]
         cash = latest_portfolios[0]
         other_stocks = latest_portfolios[1:]
@@ -389,11 +394,11 @@ class PMInference():
         return res
 
     def plot_djia(self, df):
-        linew, line_alpha, shade_alpha = 4, 0.75, 0.2
+        linew, line_alpha, shade_alpha = 2, 0.75, 0.2
         # color_list = sns.color_palette("deep", len(columns) - 1)  # Adjusting colors to match number of lines
 
-        f1 = 32
-        f2 = 26
+        f1 = 16
+        f2 = 14
         alpha = 0
 
         colors = sns.color_palette("husl", 20)
@@ -412,7 +417,7 @@ class PMInference():
 
         # Plotting the data with shaded regions
         for i, column in enumerate(columns[1:]):
-            sns.lineplot(data=df,
+            plot = sns.lineplot(data=df,
                          x="date",
                          y=column,
                          label=column,
@@ -420,13 +425,17 @@ class PMInference():
                          linewidth=linew,
                          alpha=line_alpha,
                          ax=ax)
+            plot.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+            dates = plot.get_xticks()
+            dates = np.append(dates[:-1], date2num(df['date'].max()))
+            plot.set_xticks(dates)
 
         plt.title('Date vs. DJIA', fontsize=f1, fontweight='bold')
         plt.xlabel('date', fontsize=f1, fontweight='bold')
         plt.ylabel('Price', fontsize=f2, fontweight='bold')
 
         ax.tick_params(axis='y', labelcolor='black', labelsize=f2, width=1.5)
-        ax.tick_params(axis='x', labelcolor='black', labelsize=f2, width=1.5, rotation=25)
+        ax.tick_params(axis='x', labelcolor='black', labelsize=f2, width=1.5, rotation=15)
 
         plt.tight_layout()
         plt.legend(loc='upper left', fontsize=f2, ncol=1, framealpha=alpha)
@@ -434,17 +443,18 @@ class PMInference():
         plt.savefig(os.path.join(self.exp_path, 'djia.png'))
 
     def plot_returns(self, df):
-        linew, line_alpha, shade_alpha = 4, 0.75, 0.2
+
+        linew, line_alpha, shade_alpha = 2, 0.75, 0.2
         # color_list = sns.color_palette("deep", len(columns) - 1)  # Adjusting colors to match number of lines
 
-        f1 = 32
-        f2 = 26
+        f1 = 16
+        f2 = 14
         alpha = 0
 
         colors = sns.color_palette("husl", 20)
 
         # 32 35
-        fig = plt.figure(figsize=(10, 8))
+        fig = plt.figure(figsize=(12, 6))
         sns.set(style="white")
 
         columns = ['date', 'buy_and_hold', 'earnmore']
@@ -457,7 +467,7 @@ class PMInference():
 
         # Plotting the data with shaded regions
         for i, column in enumerate(columns[1:]):
-            sns.lineplot(data=df,
+            plot = sns.lineplot(data=df,
                          x="date",
                          y=column,
                          label=column,
@@ -466,12 +476,17 @@ class PMInference():
                          alpha=line_alpha,
                          ax=ax)
 
+            plot.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+            dates = plot.get_xticks()
+            dates = np.append(dates[:-1], date2num(df['date'].max()))
+            plot.set_xticks(dates)
+
         plt.title('Date vs. Cumulative Return (DJIA)', fontsize=f1, fontweight='bold')
         plt.xlabel('date', fontsize=f1, fontweight='bold')
         plt.ylabel('Cumulative Return (in %)', fontsize=f2, fontweight='bold')
 
         ax.tick_params(axis='y', labelcolor='black', labelsize=f2, width=1.5)
-        ax.tick_params(axis='x', labelcolor='black', labelsize=f2, width=1.5, rotation=25)
+        ax.tick_params(axis='x', labelcolor='black', labelsize=f2, width=1.5, rotation=15)
 
         plt.tight_layout()
         plt.legend(loc='upper left', fontsize=f2, ncol=1, framealpha=alpha)
@@ -479,7 +494,7 @@ class PMInference():
         plt.savefig(os.path.join(self.exp_path, "returns.png"))
 
 if __name__ == '__main__':
-    show_dates = 30
+    show_dates = None
     pm_inference = PMInference()
     pm_inference.run(show_dates=show_dates)
 
