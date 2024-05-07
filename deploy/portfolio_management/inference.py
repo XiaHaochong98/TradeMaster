@@ -384,7 +384,8 @@ class PMInference():
             new_topk_data.append({
                 "stock":item[0],
                 "weight":item[1],
-                "image":item[2]
+                "image":item[2],
+                "url": f"https://site.financialmodelingprep.com/financial-summary/{item[0]}"
             })
 
         return data, new_topk_data

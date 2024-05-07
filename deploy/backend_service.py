@@ -1636,7 +1636,7 @@ class Server():
                 "info": info,
                 "djia": res["djia"],
                 "returns": res["returns"],
-                "topk": "stocks:{}, weights:{}".format(res["topk"]["stocks"], res["topk"]["weights"]),
+                "topk": json.dumps(res["topk"]),
                 'session_id': ''
             }
             return jsonify(res)
