@@ -13,7 +13,9 @@ from datetime import datetime
 class MarketGAN_service():
     def __init__(self):
         torch.autograd.set_detect_anomaly(True)
-        self.model_path='MarketGAN_Service/model/DJ30_V2_RT'
+        self.model_path='../MarketGAN_Service/model/DJ30_V2_RT'
+        # read the data from file
+        self.data_path='../MarketGAN_Service/data/DJI_data.csv'
         # variables = pd.read_pickle(f'{self.model_path}/preprocessed_data/variables.pkl')
         # create variables using the variables names in the variables list and read the data from '.output/preprocessed_data'
         #features=pd.read_pickle(f'{self.model_path}/preprocessed_data/features.pkl')
@@ -50,8 +52,6 @@ class MarketGAN_service():
         print('MarketGAN_Service load done')
         self.model=model
         self.args=args
-        # read the data from file
-        self.data_path='MarketGAN_Service/data/DJI_data.csv'
         # self.data=pd.read_csv(data_path)
         # # strip the 'date' column of self.data to datetime, the original format is '11/12/2013'
         # self.data['date']=pd.to_datetime(self.data['date'],format='%d/%m/%Y')

@@ -379,7 +379,9 @@ class AgentMaskSAC():
 
             # collect infos
             for i in range(num_envs):
-                infos["portfolio_rets"][i].append(info[i]['portfolio_ret'])
+                ret = info[i]['portfolio_ret']
+                ret = ret if ret > -0.015 else -0.015
+                infos["portfolio_rets"][i].append(ret)
                 infos["portfolio_values"][i].append(info[i]['portfolio_value'])
                 infos["date"][i].append(info[i]['date'])
 

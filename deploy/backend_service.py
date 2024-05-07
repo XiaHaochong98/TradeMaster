@@ -265,7 +265,7 @@ class Server():
             'sample_number':['64'],
         }
     # load MarketGAN_Service MarketGAN_Service
-        #self.MarketGAN = MarketGAN_service()
+        self.MarketGAN = MarketGAN_service()
 
         # load pm inference
         self.pm_inference = PMInference()
@@ -1678,7 +1678,7 @@ HEALTHCHECK = HealthCheck()
 
 def portfolio_management_function():
     global SERVER
-    SERVER.pm_inference.run(show_dates=30)
+    SERVER.pm_inference.run(show_dates=None)
 
 app.config['SCHEDULER_API_ENABLED'] = True
 app.config['JOBS'] = [

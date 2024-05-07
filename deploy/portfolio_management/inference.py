@@ -3,6 +3,7 @@ import warnings
 warnings.filterwarnings("ignore")
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+from PIL import Image, ImageDraw
 
 from pathlib import Path
 import sys
@@ -26,6 +27,8 @@ import seaborn as sns
 import base64
 from matplotlib.dates import DateFormatter
 from matplotlib.dates import date2num
+from scipy.signal import find_peaks
+from glob import glob
 
 from pm.registry import DATASET, ENVIRONMENT, AGENT
 from pm.utils import update_data_root
@@ -174,6 +177,7 @@ class PMInference():
         self.config_path = os.path.join(ROOT, 'config.py')
         self.scaler_path = os.path.join(ROOT, 'scaler_model.pkl')
         self.model_path = os.path.join(ROOT, 'model.pth')
+        self.image_path = os.path.join(ROOT, 'images/dj30')
 
         self.start_date = '2023-01-01'
         self.topk = 5
@@ -207,6 +211,8 @@ class PMInference():
         self.cached_stocks_data = self._init_stocks_data()
         self.cached_stcoks_features = self._init_stocks_features(self.cached_stocks_data)
 
+        self.images = self._init_images()
+
         self.cfg.agent.update(dict(device=self.device))
         self.agent = AGENT.build(self.cfg.agent)
         print("build agent success")
@@ -232,6 +238,17 @@ class PMInference():
             df = cal_feature(df).fillna(0)
             features.append(df)
         return features
+
+    def _init_images(self):
+        images = {}
+
+        image_paths = glob(os.path.join(self.image_path, '*.png'))
+
+        for path in image_paths:
+            name = os.path.basename(path).split('.')[0]
+            with open(path, 'rb') as op:
+                images[name] = base64.b64encode(op.read()).decode('utf-8')
+        return images
     def get_cur_stocks_data(self):
         data = []
         for stock in self.dataset.stocks:
@@ -320,10 +337,15 @@ class PMInference():
 
         data = {
             "date": infos["date"][0],
-            "values": infos["portfolio_values"][0],
+            "rets": infos["portfolio_rets"][0],
         }
+
         data = pd.DataFrame(data)
-        data["earnmore"] = (data["values"] / 1000 - 1) * 100
+        values = [1000]
+        for i in range(1, len(data)):
+            values.append(values[i - 1] * (1 + data["rets"][i]))
+        data["earnmore"] = (np.array(values) - 1000) / 10
+
         data = data[['date', 'earnmore']]
 
         latest_portfolios = infos["portfolios"][-1]
@@ -354,9 +376,18 @@ class PMInference():
             "weights": [round(cash, 4)] + topk_portfolio_stocks_weights
         }
 
-        topk_data['weights'] = np.array(topk_data['weights']).astype(np.float64).tolist()
+        topk_data["weights"] = [str(round(item, 4)) for item in topk_data["weights"]]
+        topk_data["images"] = [self.images[item] for item in topk_data["stocks"]]
 
-        return data, topk_data
+        new_topk_data = []
+        for item in zip(topk_data["stocks"], topk_data["weights"], topk_data["images"]):
+            new_topk_data.append({
+                "stock":item[0],
+                "weight":item[1],
+                "image":item[2]
+            })
+
+        return data, new_topk_data
 
     def run(self, show_dates=None):
         dow_jones_history = self.get_djia_data()
@@ -402,7 +433,7 @@ class PMInference():
         colors = sns.color_palette("husl", 20)
 
         # 32 35
-        fig = plt.figure(figsize=(10, 8))
+        fig = plt.figure(figsize=(12, 6))
         sns.set(style="white")
 
         columns = ['date', 'price']
@@ -462,6 +493,8 @@ class PMInference():
         ax = plt.subplot2grid((1, 1), (0, 0))
         for spine in ax.spines.values():
             spine.set_edgecolor('black')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
 
         # Plotting the data with shaded regions
         for i, column in enumerate(columns[1:]):
@@ -489,7 +522,32 @@ class PMInference():
         plt.tight_layout()
         plt.legend(loc='upper left', fontsize=f2, ncol=1, framealpha=alpha)
 
-        plt.savefig(os.path.join(self.exp_path, "returns.png"))
+        plt.savefig(os.path.join(self.exp_path, "returns_pre.png"))
+
+        original_image = Image.open(os.path.join(self.exp_path, "returns_pre.png"))
+        background_image = Image.open(os.path.join(ROOT, "workdir", "back.png"))
+
+        background_image = background_image.resize(original_image.size)
+        result_image = Image.new("RGBA", original_image.size)
+        background_with_alpha = Image.new("RGBA", original_image.size)
+        for x in range(original_image.width):
+            for y in range(original_image.height):
+                r, g, b, a = background_image.getpixel((x, y))
+                background_with_alpha.putpixel((x, y), (r, g, b, 255))
+
+        result_image.paste(background_with_alpha, (0, 0), background_with_alpha)
+
+        image_with_alpha = Image.new("RGBA", original_image.size)
+        for x in range(original_image.width):
+            for y in range(original_image.height):
+                r, g, b, a = original_image.getpixel((x, y))
+
+                if r >= 240 and g >= 240 and b >= 240:
+                    image_with_alpha.putpixel((x, y), (r, g, b, 0))
+                else:
+                    image_with_alpha.putpixel((x, y), (r, g, b, 255))
+        result_image.paste(image_with_alpha, (0, 0), image_with_alpha)
+        result_image.save(os.path.join(self.exp_path, "returns.png"))
 
 if __name__ == '__main__':
     show_dates = None
